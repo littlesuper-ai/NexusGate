@@ -40,5 +40,12 @@ func AutoMigrate(db *gorm.DB) error {
 		&model.WireGuardPeer{},
 		&model.Firmware{},
 		&model.FirmwareUpgrade{},
+		&model.WANInterface{},
+		&model.MWANPolicy{},
+		&model.MWANRule{},
+		&model.DHCPPool{},
+		&model.StaticLease{},
+		&model.VLAN{},
+		&model.SystemSetting{},
 	)
 }

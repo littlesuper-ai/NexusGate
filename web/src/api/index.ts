@@ -119,4 +119,48 @@ export const batchFirmwareUpgrade = (data: { firmware_id: number; group?: string
 export const getUpgradeHistory = (deviceId?: number) =>
   api.get('/firmware/upgrades', { params: deviceId ? { device_id: deviceId } : {} })
 
+// Multi-WAN
+export const getWANInterfaces = (deviceId?: number) =>
+  api.get('/network/wan', { params: deviceId ? { device_id: deviceId } : {} })
+export const createWANInterface = (data: any) => api.post('/network/wan', data)
+export const deleteWANInterface = (id: number) => api.delete(`/network/wan/${id}`)
+export const getMWANPolicies = (deviceId?: number) =>
+  api.get('/network/mwan/policies', { params: deviceId ? { device_id: deviceId } : {} })
+export const createMWANPolicy = (data: any) => api.post('/network/mwan/policies', data)
+export const deleteMWANPolicy = (id: number) => api.delete(`/network/mwan/policies/${id}`)
+export const getMWANRules = (deviceId?: number) =>
+  api.get('/network/mwan/rules', { params: deviceId ? { device_id: deviceId } : {} })
+export const createMWANRule = (data: any) => api.post('/network/mwan/rules', data)
+export const deleteMWANRule = (id: number) => api.delete(`/network/mwan/rules/${id}`)
+export const applyMWAN = (deviceId: number) => api.post(`/network/mwan/apply/${deviceId}`)
+
+// DHCP
+export const getDHCPPools = (deviceId?: number) =>
+  api.get('/network/dhcp/pools', { params: deviceId ? { device_id: deviceId } : {} })
+export const createDHCPPool = (data: any) => api.post('/network/dhcp/pools', data)
+export const deleteDHCPPool = (id: number) => api.delete(`/network/dhcp/pools/${id}`)
+export const getStaticLeases = (deviceId?: number) =>
+  api.get('/network/dhcp/leases', { params: deviceId ? { device_id: deviceId } : {} })
+export const createStaticLease = (data: any) => api.post('/network/dhcp/leases', data)
+export const deleteStaticLease = (id: number) => api.delete(`/network/dhcp/leases/${id}`)
+export const applyDHCP = (deviceId: number) => api.post(`/network/dhcp/apply/${deviceId}`)
+
+// VLAN
+export const getVLANs = (deviceId?: number) =>
+  api.get('/network/vlans', { params: deviceId ? { device_id: deviceId } : {} })
+export const createVLAN = (data: any) => api.post('/network/vlans', data)
+export const updateVLAN = (id: number, data: any) => api.put(`/network/vlans/${id}`, data)
+export const deleteVLAN = (id: number) => api.delete(`/network/vlans/${id}`)
+export const applyVLAN = (deviceId: number) => api.post(`/network/vlans/apply/${deviceId}`)
+
+// Settings
+export const getSettings = (category?: string) =>
+  api.get('/settings', { params: category ? { category } : {} })
+export const getSetting = (key: string) => api.get(`/settings/${key}`)
+export const upsertSetting = (data: { key: string; value: string; category?: string }) =>
+  api.post('/settings', data)
+export const batchUpsertSettings = (items: { key: string; value: string; category?: string }[]) =>
+  api.post('/settings/batch', items)
+export const deleteSetting = (key: string) => api.delete(`/settings/${key}`)
+
 export default api

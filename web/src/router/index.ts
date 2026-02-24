@@ -50,6 +50,24 @@ const router = createRouter({
       meta: { title: '防火墙' },
     },
     {
+      path: '/mwan',
+      name: 'MWAN',
+      component: () => import('../views/MWAN.vue'),
+      meta: { title: '多线负载' },
+    },
+    {
+      path: '/dhcp',
+      name: 'DHCP',
+      component: () => import('../views/DHCP.vue'),
+      meta: { title: 'DHCP 管理' },
+    },
+    {
+      path: '/vlan',
+      name: 'VLAN',
+      component: () => import('../views/VLAN.vue'),
+      meta: { title: 'VLAN 管理' },
+    },
+    {
       path: '/firmware',
       name: 'Firmware',
       component: () => import('../views/Firmware.vue'),
@@ -78,6 +96,12 @@ const router = createRouter({
       name: 'Audit',
       component: () => import('../views/Audit.vue'),
       meta: { title: '审计日志' },
+    },
+    {
+      path: '/settings',
+      name: 'Settings',
+      component: () => import('../views/Settings.vue'),
+      meta: { title: '系统设置' },
     },
   ],
 })

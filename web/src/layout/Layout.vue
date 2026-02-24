@@ -30,6 +30,9 @@
           </template>
           <el-menu-item index="/firewall">防火墙</el-menu-item>
           <el-menu-item index="/vpn">VPN</el-menu-item>
+          <el-menu-item index="/mwan">多线负载</el-menu-item>
+          <el-menu-item index="/dhcp">DHCP</el-menu-item>
+          <el-menu-item index="/vlan">VLAN</el-menu-item>
           <el-menu-item index="/topology">网络拓扑</el-menu-item>
         </el-sub-menu>
         <el-menu-item index="/firmware">
@@ -47,6 +50,10 @@
         <el-menu-item index="/audit">
           <el-icon><List /></el-icon>
           <span>审计日志</span>
+        </el-menu-item>
+        <el-menu-item index="/settings">
+          <el-icon><Setting /></el-icon>
+          <span>系统设置</span>
         </el-menu-item>
       </el-menu>
     </el-aside>

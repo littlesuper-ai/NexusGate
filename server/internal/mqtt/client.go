@@ -8,6 +8,7 @@ import (
 	pahomqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/nexusgate/nexusgate/internal/config"
 	"github.com/nexusgate/nexusgate/internal/model"
+	"github.com/nexusgate/nexusgate/internal/ws"
 	"gorm.io/gorm"
 )
 
@@ -32,7 +33,8 @@ func NewClient(cfg *config.Config) (pahomqtt.Client, error) {
 }
 
 // SubscribeDeviceStatus listens for heartbeat messages from agents and updates device status.
-func SubscribeDeviceStatus(client pahomqtt.Client, db *gorm.DB) {
+// It also broadcasts status updates to connected WebSocket clients via the hub.
+func SubscribeDeviceStatus(client pahomqtt.Client, db *gorm.DB, hub *ws.Hub) {
 	client.Subscribe("nexusgate/devices/+/status", 1, func(_ pahomqtt.Client, msg pahomqtt.Message) {
 		var payload struct {
 			MAC        string  `json:"mac"`
@@ -60,8 +62,15 @@ func SubscribeDeviceStatus(client pahomqtt.Client, db *gorm.DB) {
 			"last_seen_at": &now,
 		})
 
+		// Look up device ID for metrics record
+		var device model.Device
+		var deviceID uint
+		if err := db.Select("id").Where("mac = ?", payload.MAC).First(&device).Error; err == nil {
+			deviceID = device.ID
+		}
+
 		db.Create(&model.DeviceMetrics{
-			DeviceID:    0, // will be set by a trigger or looked up
+			DeviceID:    deviceID,
 			CPUUsage:    payload.CPUUsage,
 			MemUsage:    payload.MemUsage,
 			MemTotal:    payload.MemTotal,
@@ -73,5 +82,21 @@ func SubscribeDeviceStatus(client pahomqtt.Client, db *gorm.DB) {
 			LoadAvg:     payload.LoadAvg,
 			CollectedAt: now,
 		})
+
+		// Broadcast to WebSocket clients
+		if hub != nil {
+			hub.Broadcast("device_status", map[string]any{
+				"mac":         payload.MAC,
+				"device_id":   deviceID,
+				"cpu_usage":   payload.CPUUsage,
+				"mem_usage":   payload.MemUsage,
+				"rx_bytes":    payload.RxBytes,
+				"tx_bytes":    payload.TxBytes,
+				"conntrack":   payload.Conntrack,
+				"uptime_secs": payload.UptimeSecs,
+				"load_avg":    payload.LoadAvg,
+				"status":      "online",
+			})
+		}
 	})
 }

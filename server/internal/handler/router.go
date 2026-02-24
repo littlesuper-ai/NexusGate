@@ -6,10 +6,11 @@ import (
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/nexusgate/nexusgate/internal/config"
 	"github.com/nexusgate/nexusgate/internal/handler/middleware"
+	"github.com/nexusgate/nexusgate/internal/ws"
 	"gorm.io/gorm"
 )
 
-func SetupRouter(db *gorm.DB, mqttClient mqtt.Client, cfg *config.Config) *gin.Engine {
+func SetupRouter(db *gorm.DB, mqttClient mqtt.Client, cfg *config.Config, wsHub *ws.Hub) *gin.Engine {
 	r := gin.Default()
 
 	r.Use(cors.New(cors.Config{
@@ -25,6 +26,11 @@ func SetupRouter(db *gorm.DB, mqttClient mqtt.Client, cfg *config.Config) *gin.E
 	firewallHandler := &FirewallHandler{DB: db, MQTT: mqttClient}
 	vpnHandler := &VPNHandler{DB: db, MQTT: mqttClient}
 	firmwareHandler := &FirmwareHandler{DB: db, MQTT: mqttClient}
+	networkHandler := &NetworkHandler{DB: db, MQTT: mqttClient}
+	settingHandler := &SettingHandler{DB: db}
+
+	// WebSocket endpoint (no JWT for WS upgrade, auth via query param)
+	r.GET("/ws", wsHub.HandleWS)
 
 	// Public routes
 	pub := r.Group("/api/v1")
@@ -96,6 +102,41 @@ func SetupRouter(db *gorm.DB, mqttClient mqtt.Client, cfg *config.Config) *gin.E
 		api.POST("/firmware/upgrade", firmwareHandler.PushUpgrade)
 		api.POST("/firmware/upgrade/batch", firmwareHandler.BatchUpgrade)
 		api.GET("/firmware/upgrades", firmwareHandler.UpgradeHistory)
+
+		// Multi-WAN
+		api.GET("/network/wan", networkHandler.ListWANInterfaces)
+		api.POST("/network/wan", networkHandler.CreateWANInterface)
+		api.DELETE("/network/wan/:id", networkHandler.DeleteWANInterface)
+		api.GET("/network/mwan/policies", networkHandler.ListMWANPolicies)
+		api.POST("/network/mwan/policies", networkHandler.CreateMWANPolicy)
+		api.DELETE("/network/mwan/policies/:id", networkHandler.DeleteMWANPolicy)
+		api.GET("/network/mwan/rules", networkHandler.ListMWANRules)
+		api.POST("/network/mwan/rules", networkHandler.CreateMWANRule)
+		api.DELETE("/network/mwan/rules/:id", networkHandler.DeleteMWANRule)
+		api.POST("/network/mwan/apply/:device_id", networkHandler.ApplyMWAN)
+
+		// DHCP
+		api.GET("/network/dhcp/pools", networkHandler.ListDHCPPools)
+		api.POST("/network/dhcp/pools", networkHandler.CreateDHCPPool)
+		api.DELETE("/network/dhcp/pools/:id", networkHandler.DeleteDHCPPool)
+		api.GET("/network/dhcp/leases", networkHandler.ListStaticLeases)
+		api.POST("/network/dhcp/leases", networkHandler.CreateStaticLease)
+		api.DELETE("/network/dhcp/leases/:id", networkHandler.DeleteStaticLease)
+		api.POST("/network/dhcp/apply/:device_id", networkHandler.ApplyDHCP)
+
+		// VLAN
+		api.GET("/network/vlans", networkHandler.ListVLANs)
+		api.POST("/network/vlans", networkHandler.CreateVLAN)
+		api.PUT("/network/vlans/:id", networkHandler.UpdateVLAN)
+		api.DELETE("/network/vlans/:id", networkHandler.DeleteVLAN)
+		api.POST("/network/vlans/apply/:device_id", networkHandler.ApplyVLAN)
+
+		// System settings
+		api.GET("/settings", settingHandler.List)
+		api.GET("/settings/:key", settingHandler.Get)
+		api.POST("/settings", settingHandler.Upsert)
+		api.POST("/settings/batch", settingHandler.BatchUpsert)
+		api.DELETE("/settings/:key", settingHandler.Delete)
 
 		// Dashboard
 		api.GET("/dashboard/summary", deviceHandler.DashboardSummary)

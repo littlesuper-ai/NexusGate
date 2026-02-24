@@ -30,7 +30,14 @@
     <el-row :gutter="20" style="margin-top: 20px">
       <el-col :span="16">
         <el-card>
-          <template #header>设备列表</template>
+          <template #header>
+            <el-row justify="space-between" align="middle">
+              <span>设备列表</span>
+              <el-tag :type="wsConnected ? 'success' : 'info'" size="small">
+                {{ wsConnected ? '实时更新' : '离线' }}
+              </el-tag>
+            </el-row>
+          </template>
           <el-table :data="devices" stripe size="small" max-height="420">
             <el-table-column prop="name" label="名称" />
             <el-table-column prop="ip_address" label="IP" width="130" />
@@ -78,11 +85,25 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { getDashboardSummary, getDevices, getTemplates, getAuditLogs } from '../api'
+import { useWebSocket } from '../composables/useWebSocket'
 
 const summary = ref({ total_devices: 0, online_devices: 0, offline_devices: 0 })
 const devices = ref<any[]>([])
 const templateCount = ref(0)
 const auditLogs = ref<any[]>([])
+
+const { connected: wsConnected, on: wsOn } = useWebSocket()
+
+// Handle real-time device status updates
+wsOn('device_status', (data: any) => {
+  const idx = devices.value.findIndex((d: any) => d.mac === data.mac || d.id === data.device_id)
+  if (idx !== -1) {
+    devices.value[idx].cpu_usage = data.cpu_usage
+    devices.value[idx].mem_usage = data.mem_usage
+    devices.value[idx].status = data.status
+    devices.value[idx].uptime_secs = data.uptime_secs
+  }
+})
 
 const formatTime = (t: string) => {
   const d = new Date(t)
