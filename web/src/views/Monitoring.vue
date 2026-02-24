@@ -8,6 +8,9 @@
         </el-select>
       </el-col>
       <el-col :span="12" style="text-align: right">
+        <el-tag :type="wsConnected ? 'success' : 'info'" size="small" style="margin-right: 12px">
+          {{ wsConnected ? '实时' : '离线' }}
+        </el-tag>
         <el-button :icon="Refresh" @click="fetchMetrics" :disabled="!deviceId">刷新</el-button>
       </el-col>
     </el-row>
@@ -50,14 +53,37 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, markRaw } from 'vue'
+import { ref, onMounted, nextTick, markRaw, watch } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import { getDevices, getDeviceMetrics } from '../api'
+import { useWebSocket } from '../composables/useWebSocket'
 
 const devices = ref<any[]>([])
 const deviceId = ref<number | null>(null)
 const metrics = ref<any[]>([])
+const { connected: wsConnected, on: wsOn } = useWebSocket()
+
+// Handle real-time metrics updates via WebSocket
+wsOn('device_status', (data: any) => {
+  if (!deviceId.value) return
+  const selectedDev = devices.value.find((d: any) => d.id === deviceId.value)
+  if (!selectedDev) return
+  if (data.mac !== selectedDev.mac && data.device_id !== deviceId.value) return
+
+  // Append new data point to metrics and re-render charts
+  const point = {
+    cpu_usage: data.cpu_usage,
+    mem_usage: data.mem_usage,
+    rx_bytes: data.rx_bytes || 0,
+    tx_bytes: data.tx_bytes || 0,
+    conntrack: data.conntrack || 0,
+    collected_at: new Date().toISOString(),
+  }
+  metrics.value.unshift(point)
+  if (metrics.value.length > 500) metrics.value.pop()
+  renderCharts()
+})
 
 const cpuChartRef = ref<HTMLElement>()
 const memChartRef = ref<HTMLElement>()

@@ -165,6 +165,7 @@ import {
   getDevice, updateDevice, rebootDevice, pushConfig,
   getTemplates, getConfigHistory, getDeviceMetrics, getUpgradeHistory,
 } from '../api'
+import { useWebSocket } from '../composables/useWebSocket'
 
 const route = useRoute()
 const router = useRouter()
@@ -189,6 +190,30 @@ const memChartRef = ref<HTMLElement>()
 const netChartRef = ref<HTMLElement>()
 const connChartRef = ref<HTMLElement>()
 const miniCpuChart = ref<HTMLElement>()
+
+const { on: wsOn } = useWebSocket()
+
+// Real-time status updates
+wsOn('device_status', (data: any) => {
+  if (!device.value) return
+  if (data.mac !== device.value.mac && data.device_id !== deviceId) return
+  device.value.cpu_usage = data.cpu_usage
+  device.value.mem_usage = data.mem_usage
+  device.value.status = data.status
+  device.value.uptime_secs = data.uptime_secs
+})
+
+// Real-time config ACK updates
+wsOn('config_ack', (data: any) => {
+  const cfg = configs.value.find((c: any) => c.id === data.config_id)
+  if (cfg) cfg.status = data.status
+})
+
+// Real-time upgrade ACK updates
+wsOn('upgrade_ack', (data: any) => {
+  const upg = upgrades.value.find((u: any) => u.id === data.upgrade_id)
+  if (upg) upg.status = data.status
+})
 
 const formatUptime = (secs?: number) => {
   if (!secs) return '-'

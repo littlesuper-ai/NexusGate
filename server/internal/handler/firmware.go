@@ -71,6 +71,7 @@ func (h *FirmwareHandler) Upload(c *gin.Context) {
 		return
 	}
 
+	writeAudit(h.DB, c, "upload", "firmware", fmt.Sprintf("uploaded firmware %s v%s", file.Filename, version))
 	c.JSON(http.StatusCreated, fw)
 }
 
@@ -93,6 +94,7 @@ func (h *FirmwareHandler) Delete(c *gin.Context) {
 
 	os.Remove(filepath.Join(firmwareDir, fw.Filename))
 	h.DB.Delete(&fw)
+	writeAudit(h.DB, c, "delete", "firmware", fmt.Sprintf("deleted firmware %s (id=%d)", fw.Filename, fw.ID))
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 }
 
@@ -145,6 +147,7 @@ func (h *FirmwareHandler) PushUpgrade(c *gin.Context) {
 		h.MQTT.Publish(topic, 1, false, payload)
 	}
 
+	writeAudit(h.DB, c, "upgrade", "firmware", fmt.Sprintf("pushed firmware v%s to device %s", fw.Version, device.Name))
 	c.JSON(http.StatusOK, gin.H{"message": "upgrade initiated", "upgrade_id": upgrade.ID})
 }
 

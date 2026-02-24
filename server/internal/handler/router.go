@@ -28,6 +28,7 @@ func SetupRouter(db *gorm.DB, mqttClient mqtt.Client, cfg *config.Config, wsHub 
 	firmwareHandler := &FirmwareHandler{DB: db, MQTT: mqttClient}
 	networkHandler := &NetworkHandler{DB: db, MQTT: mqttClient}
 	settingHandler := &SettingHandler{DB: db}
+	alertHandler := &AlertHandler{DB: db}
 
 	// WebSocket endpoint (no JWT for WS upgrade, auth via query param)
 	r.GET("/ws", wsHub.HandleWS)
@@ -106,12 +107,15 @@ func SetupRouter(db *gorm.DB, mqttClient mqtt.Client, cfg *config.Config, wsHub 
 		// Multi-WAN
 		api.GET("/network/wan", networkHandler.ListWANInterfaces)
 		api.POST("/network/wan", networkHandler.CreateWANInterface)
+		api.PUT("/network/wan/:id", networkHandler.UpdateWANInterface)
 		api.DELETE("/network/wan/:id", networkHandler.DeleteWANInterface)
 		api.GET("/network/mwan/policies", networkHandler.ListMWANPolicies)
 		api.POST("/network/mwan/policies", networkHandler.CreateMWANPolicy)
+		api.PUT("/network/mwan/policies/:id", networkHandler.UpdateMWANPolicy)
 		api.DELETE("/network/mwan/policies/:id", networkHandler.DeleteMWANPolicy)
 		api.GET("/network/mwan/rules", networkHandler.ListMWANRules)
 		api.POST("/network/mwan/rules", networkHandler.CreateMWANRule)
+		api.PUT("/network/mwan/rules/:id", networkHandler.UpdateMWANRule)
 		api.DELETE("/network/mwan/rules/:id", networkHandler.DeleteMWANRule)
 		api.POST("/network/mwan/apply/:device_id", networkHandler.ApplyMWAN)
 
@@ -137,6 +141,11 @@ func SetupRouter(db *gorm.DB, mqttClient mqtt.Client, cfg *config.Config, wsHub 
 		api.POST("/settings", settingHandler.Upsert)
 		api.POST("/settings/batch", settingHandler.BatchUpsert)
 		api.DELETE("/settings/:key", settingHandler.Delete)
+
+		// Alerts
+		api.GET("/alerts", alertHandler.List)
+		api.GET("/alerts/summary", alertHandler.Summary)
+		api.POST("/alerts/:id/resolve", alertHandler.Resolve)
 
 		// Dashboard
 		api.GET("/dashboard/summary", deviceHandler.DashboardSummary)

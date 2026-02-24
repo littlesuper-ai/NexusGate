@@ -108,6 +108,7 @@ func (h *DeviceHandler) Update(c *gin.Context) {
 		"group": req.Group,
 		"tags":  req.Tags,
 	})
+	writeAudit(h.DB, c, "update", "device", fmt.Sprintf("updated device %s (id=%d)", device.Name, device.ID))
 	c.JSON(http.StatusOK, device)
 }
 
@@ -116,6 +117,7 @@ func (h *DeviceHandler) Delete(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	writeAudit(h.DB, c, "delete", "device", fmt.Sprintf("deleted device id=%s", c.Param("id")))
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 }
 
@@ -131,13 +133,32 @@ func (h *DeviceHandler) Reboot(c *gin.Context) {
 		h.MQTT.Publish(topic, 1, false, `{"action":"reboot"}`)
 	}
 
+	writeAudit(h.DB, c, "reboot", "device", fmt.Sprintf("rebooted device %s (id=%d)", device.Name, device.ID))
 	c.JSON(http.StatusOK, gin.H{"message": "reboot command sent"})
 }
 
 func (h *DeviceHandler) Metrics(c *gin.Context) {
 	var metrics []model.DeviceMetrics
-	if err := h.DB.Where("device_id = ?", c.Param("id")).
-		Order("collected_at DESC").Limit(100).
+	query := h.DB.Where("device_id = ?", c.Param("id"))
+
+	if from := c.Query("from"); from != "" {
+		if t, err := time.Parse(time.RFC3339, from); err == nil {
+			query = query.Where("collected_at >= ?", t)
+		}
+	}
+	if to := c.Query("to"); to != "" {
+		if t, err := time.Parse(time.RFC3339, to); err == nil {
+			query = query.Where("collected_at <= ?", t)
+		}
+	}
+	if hours := c.Query("hours"); hours != "" {
+		var n int
+		if _, err := fmt.Sscanf(hours, "%d", &n); err == nil && n > 0 {
+			query = query.Where("collected_at >= ?", time.Now().Add(-time.Duration(n)*time.Hour))
+		}
+	}
+
+	if err := query.Order("collected_at DESC").Limit(500).
 		Find(&metrics).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return

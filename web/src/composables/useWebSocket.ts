@@ -6,67 +6,93 @@ export interface WSMessage {
   timestamp: string
 }
 
-export function useWebSocket() {
-  const connected = ref(false)
-  const lastMessage = ref<WSMessage | null>(null)
-  const handlers = new Map<string, Set<(data: any) => void>>()
-  let ws: WebSocket | null = null
-  let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+// Singleton state — shared across all components
+const connected = ref(false)
+const lastMessage = ref<WSMessage | null>(null)
+const handlers = new Map<string, Set<(data: any) => void>>()
+let ws: WebSocket | null = null
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+let refCount = 0
 
-  const connect = () => {
-    const token = localStorage.getItem('token')
-    if (!token) {
-      // No token — retry after delay (user might not be logged in yet)
+function connect() {
+  if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return
+
+  const token = localStorage.getItem('token')
+  if (!token) {
+    reconnectTimer = setTimeout(connect, 3000)
+    return
+  }
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const url = `${proto}//${location.host}/ws?token=${encodeURIComponent(token)}`
+  ws = new WebSocket(url)
+
+  ws.onopen = () => {
+    connected.value = true
+    if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
+  }
+
+  ws.onmessage = (event) => {
+    try {
+      const msg: WSMessage = JSON.parse(event.data)
+      lastMessage.value = msg
+      const fns = handlers.get(msg.type)
+      if (fns) fns.forEach(fn => fn(msg.data))
+    } catch { /* ignore non-JSON */ }
+  }
+
+  ws.onclose = () => {
+    connected.value = false
+    ws = null
+    if (refCount > 0) {
       reconnectTimer = setTimeout(connect, 3000)
-      return
-    }
-    const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const url = `${proto}//${location.host}/ws?token=${encodeURIComponent(token)}`
-    ws = new WebSocket(url)
-
-    ws.onopen = () => {
-      connected.value = true
-      if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
-    }
-
-    ws.onmessage = (event) => {
-      try {
-        const msg: WSMessage = JSON.parse(event.data)
-        lastMessage.value = msg
-        const fns = handlers.get(msg.type)
-        if (fns) fns.forEach(fn => fn(msg.data))
-      } catch { /* ignore non-JSON */ }
-    }
-
-    ws.onclose = () => {
-      connected.value = false
-      reconnectTimer = setTimeout(connect, 3000)
-    }
-
-    ws.onerror = () => {
-      ws?.close()
     }
   }
+
+  ws.onerror = () => {
+    ws?.close()
+  }
+}
+
+function disconnect() {
+  if (reconnectTimer) clearTimeout(reconnectTimer)
+  reconnectTimer = null
+  ws?.close()
+  ws = null
+  connected.value = false
+}
+
+/**
+ * Shared WebSocket composable (singleton connection).
+ * Multiple components can call useWebSocket() — only one connection is maintained.
+ * Handlers registered with `on()` are automatically cleaned up on unmount.
+ */
+export function useWebSocket() {
+  const localHandlers: Array<{ type: string; fn: (data: any) => void }> = []
+
+  refCount++
+  connect()
 
   const on = (type: string, handler: (data: any) => void) => {
     if (!handlers.has(type)) handlers.set(type, new Set())
     handlers.get(type)!.add(handler)
+    localHandlers.push({ type, fn: handler })
   }
 
   const off = (type: string, handler: (data: any) => void) => {
     handlers.get(type)?.delete(handler)
   }
 
-  const disconnect = () => {
-    if (reconnectTimer) clearTimeout(reconnectTimer)
-    ws?.close()
-    ws = null
-    connected.value = false
-  }
+  onUnmounted(() => {
+    // Clean up handlers registered by this component
+    for (const { type, fn } of localHandlers) {
+      handlers.get(type)?.delete(fn)
+    }
+    refCount--
+    if (refCount <= 0) {
+      refCount = 0
+      disconnect()
+    }
+  })
 
-  connect()
-
-  onUnmounted(disconnect)
-
-  return { connected, lastMessage, on, off, disconnect }
+  return { connected, lastMessage, on, off }
 }

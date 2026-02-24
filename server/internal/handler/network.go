@@ -46,6 +46,20 @@ func (h *NetworkHandler) CreateWANInterface(c *gin.Context) {
 	c.JSON(http.StatusCreated, item)
 }
 
+func (h *NetworkHandler) UpdateWANInterface(c *gin.Context) {
+	var item model.WANInterface
+	if err := h.DB.First(&item, c.Param("id")).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "wan interface not found"})
+		return
+	}
+	if err := c.ShouldBindJSON(&item); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	h.DB.Save(&item)
+	c.JSON(http.StatusOK, item)
+}
+
 func (h *NetworkHandler) DeleteWANInterface(c *gin.Context) {
 	h.DB.Delete(&model.WANInterface{}, c.Param("id"))
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
@@ -71,6 +85,20 @@ func (h *NetworkHandler) CreateMWANPolicy(c *gin.Context) {
 	c.JSON(http.StatusCreated, item)
 }
 
+func (h *NetworkHandler) UpdateMWANPolicy(c *gin.Context) {
+	var item model.MWANPolicy
+	if err := h.DB.First(&item, c.Param("id")).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "policy not found"})
+		return
+	}
+	if err := c.ShouldBindJSON(&item); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	h.DB.Save(&item)
+	c.JSON(http.StatusOK, item)
+}
+
 func (h *NetworkHandler) DeleteMWANPolicy(c *gin.Context) {
 	h.DB.Delete(&model.MWANPolicy{}, c.Param("id"))
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
@@ -94,6 +122,20 @@ func (h *NetworkHandler) CreateMWANRule(c *gin.Context) {
 	}
 	h.DB.Create(&item)
 	c.JSON(http.StatusCreated, item)
+}
+
+func (h *NetworkHandler) UpdateMWANRule(c *gin.Context) {
+	var item model.MWANRule
+	if err := h.DB.First(&item, c.Param("id")).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "rule not found"})
+		return
+	}
+	if err := c.ShouldBindJSON(&item); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	h.DB.Save(&item)
+	c.JSON(http.StatusOK, item)
 }
 
 func (h *NetworkHandler) DeleteMWANRule(c *gin.Context) {
@@ -123,6 +165,7 @@ func (h *NetworkHandler) ApplyMWAN(c *gin.Context) {
 		h.MQTT.Publish(topic, 1, false, uci)
 	}
 	h.DB.Create(&model.DeviceConfig{DeviceID: device.ID, Content: uci, Status: "pending"})
+	writeAudit(h.DB, c, "apply", "mwan", fmt.Sprintf("applied MWAN config to device %s", device.Name))
 	c.JSON(http.StatusOK, gin.H{"message": "mwan3 config pushed", "uci": uci})
 }
 
@@ -302,6 +345,7 @@ func (h *NetworkHandler) ApplyDHCP(c *gin.Context) {
 		h.MQTT.Publish(topic, 1, false, uci)
 	}
 	h.DB.Create(&model.DeviceConfig{DeviceID: device.ID, Content: uci, Status: "pending"})
+	writeAudit(h.DB, c, "apply", "dhcp", fmt.Sprintf("applied DHCP config to device %s", device.Name))
 	c.JSON(http.StatusOK, gin.H{"message": "dhcp config pushed", "uci": uci})
 }
 
@@ -356,6 +400,7 @@ func (h *NetworkHandler) ApplyVLAN(c *gin.Context) {
 		h.MQTT.Publish(topic, 1, false, uci)
 	}
 	h.DB.Create(&model.DeviceConfig{DeviceID: device.ID, Content: uci, Status: "pending"})
+	writeAudit(h.DB, c, "apply", "vlan", fmt.Sprintf("applied VLAN config to device %s", device.Name))
 	c.JSON(http.StatusOK, gin.H{"message": "vlan config pushed", "uci": uci})
 }
 

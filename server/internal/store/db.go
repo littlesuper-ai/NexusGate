@@ -47,5 +47,6 @@ func AutoMigrate(db *gorm.DB) error {
 		&model.StaticLease{},
 		&model.VLAN{},
 		&model.SystemSetting{},
+		&model.Alert{},
 	)
 }

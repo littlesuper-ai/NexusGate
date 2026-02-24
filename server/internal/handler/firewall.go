@@ -141,6 +141,7 @@ func (h *FirewallHandler) ApplyFirewall(c *gin.Context) {
 		Status:   "pending",
 	})
 
+	writeAudit(h.DB, c, "apply", "firewall", fmt.Sprintf("applied firewall config to device %s", device.Name))
 	c.JSON(http.StatusOK, gin.H{"message": "firewall config pushed", "uci": uci})
 }
 

@@ -146,6 +146,7 @@ func (h *VPNHandler) ApplyVPN(c *gin.Context) {
 		Status:   "pending",
 	})
 
+	writeAudit(h.DB, c, "apply", "vpn", fmt.Sprintf("applied VPN config to device %s", device.Name))
 	c.JSON(http.StatusOK, gin.H{"message": "vpn config pushed", "uci": uci})
 }
 

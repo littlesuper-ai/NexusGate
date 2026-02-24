@@ -37,6 +37,8 @@ func main() {
 
 	if mqttClient != nil {
 		mqtt.SubscribeDeviceStatus(mqttClient, db, wsHub)
+		mqtt.SubscribeConfigACK(mqttClient, db, wsHub)
+		mqtt.SubscribeUpgradeACK(mqttClient, db, wsHub)
 	}
 
 	// Start background jobs

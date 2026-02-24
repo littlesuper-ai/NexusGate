@@ -43,6 +43,10 @@
           <el-icon><DataLine /></el-icon>
           <span>监控中心</span>
         </el-menu-item>
+        <el-menu-item index="/alerts">
+          <el-icon><Bell /></el-icon>
+          <span>告警中心</span>
+        </el-menu-item>
         <el-menu-item index="/users">
           <el-icon><User /></el-icon>
           <span>用户管理</span>
@@ -84,7 +88,7 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Monitor, Connection, Document, Setting,
-  DataLine, User, List, ArrowDown, Upload,
+  DataLine, User, List, ArrowDown, Upload, Bell,
 } from '@element-plus/icons-vue'
 
 const route = useRoute()

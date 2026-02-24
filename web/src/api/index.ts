@@ -163,4 +163,10 @@ export const batchUpsertSettings = (items: { key: string; value: string; categor
   api.post('/settings/batch', items)
 export const deleteSetting = (key: string) => api.delete(`/settings/${key}`)
 
+// Alerts
+export const getAlerts = (params?: Record<string, string>) =>
+  api.get('/alerts', { params })
+export const getAlertSummary = () => api.get('/alerts/summary')
+export const resolveAlert = (id: number) => api.post(`/alerts/${id}/resolve`)
+
 export default api
