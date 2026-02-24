@@ -167,15 +167,17 @@ func (h *DeviceHandler) Metrics(c *gin.Context) {
 }
 
 func (h *DeviceHandler) DashboardSummary(c *gin.Context) {
-	var total, online, offline int64
+	var total, online, offline, unknown int64
 
 	h.DB.Model(&model.Device{}).Count(&total)
 	h.DB.Model(&model.Device{}).Where("status = ?", model.StatusOnline).Count(&online)
 	h.DB.Model(&model.Device{}).Where("status = ?", model.StatusOffline).Count(&offline)
+	h.DB.Model(&model.Device{}).Where("status = ?", model.StatusUnknown).Count(&unknown)
 
 	c.JSON(http.StatusOK, gin.H{
 		"total_devices":   total,
 		"online_devices":  online,
 		"offline_devices": offline,
+		"unknown_devices": unknown,
 	})
 }

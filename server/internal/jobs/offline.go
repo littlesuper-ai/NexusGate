@@ -31,7 +31,7 @@ func checkOfflineDevices(db *gorm.DB, hub *ws.Hub) {
 
 	// Try to read the threshold from system settings
 	var setting model.SystemSetting
-	if err := db.Where("`key` = ?", "offline_threshold").First(&setting).Error; err == nil {
+	if err := db.Where("\"key\" = ?", "offline_threshold").First(&setting).Error; err == nil {
 		if v, err := strconv.Atoi(setting.Value); err == nil && v > 0 {
 			threshold = v
 		}
@@ -83,7 +83,7 @@ func cleanupOldMetrics(db *gorm.DB) {
 	retentionDays := 30
 
 	var setting model.SystemSetting
-	if err := db.Where("`key` = ?", "metrics_retention_days").First(&setting).Error; err == nil {
+	if err := db.Where("\"key\" = ?", "metrics_retention_days").First(&setting).Error; err == nil {
 		if v, err := strconv.Atoi(setting.Value); err == nil && v > 0 {
 			retentionDays = v
 		}

@@ -135,23 +135,17 @@ func (h *VPNHandler) ApplyVPN(c *gin.Context) {
 
 	uci := generateWireGuardUCI(ifaces, allPeers)
 
-	if h.MQTT != nil && h.MQTT.IsConnected() {
-		topic := fmt.Sprintf("nexusgate/devices/%s/config", device.MAC)
-		h.MQTT.Publish(topic, 1, false, uci)
-	}
-
-	h.DB.Create(&model.DeviceConfig{
-		DeviceID: device.ID,
-		Content:  uci,
-		Status:   "pending",
-	})
+	record := model.DeviceConfig{DeviceID: device.ID, Content: uci, Status: "pending"}
+	h.DB.Create(&record)
+	publishConfig(h.MQTT, device.MAC, record.ID, uci)
 
 	writeAudit(h.DB, c, "apply", "vpn", fmt.Sprintf("applied VPN config to device %s", device.Name))
-	c.JSON(http.StatusOK, gin.H{"message": "vpn config pushed", "uci": uci})
+	c.JSON(http.StatusOK, gin.H{"message": "vpn config pushed", "config_id": record.ID})
 }
 
 func generateWireGuardUCI(ifaces []model.WireGuardInterface, peers []model.WireGuardPeer) string {
 	var b strings.Builder
+	b.WriteString("package network\n\n")
 
 	for _, iface := range ifaces {
 		b.WriteString(fmt.Sprintf("config interface '%s'\n", iface.Name))

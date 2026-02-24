@@ -199,6 +199,7 @@ func (h *FirmwareHandler) BatchUpgrade(c *gin.Context) {
 		count++
 	}
 
+	writeAudit(h.DB, c, "batch_upgrade", "firmware", fmt.Sprintf("batch pushed firmware v%s to %d devices", fw.Version, count))
 	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("upgrade pushed to %d devices", count)})
 }
 

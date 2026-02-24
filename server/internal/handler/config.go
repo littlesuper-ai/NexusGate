@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -9,6 +10,23 @@ import (
 	"github.com/nexusgate/nexusgate/internal/model"
 	"gorm.io/gorm"
 )
+
+// configEnvelope wraps UCI config content with an ID so the agent can ACK.
+type configEnvelope struct {
+	ConfigID uint   `json:"config_id"`
+	Content  string `json:"content"`
+}
+
+// publishConfig sends a config envelope via MQTT and returns the JSON payload.
+func publishConfig(mqttClient mqtt.Client, mac string, configID uint, content string) {
+	if mqttClient == nil || !mqttClient.IsConnected() {
+		return
+	}
+	envelope := configEnvelope{ConfigID: configID, Content: content}
+	payload, _ := json.Marshal(envelope)
+	topic := fmt.Sprintf("nexusgate/devices/%s/config", mac)
+	mqttClient.Publish(topic, 1, false, payload)
+}
 
 type ConfigHandler struct {
 	DB   *gorm.DB
@@ -38,6 +56,7 @@ func (h *ConfigHandler) CreateTemplate(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	writeAudit(h.DB, c, "create", "template", fmt.Sprintf("created template %s (id=%d)", tpl.Name, tpl.ID))
 	c.JSON(http.StatusCreated, tpl)
 }
 
@@ -61,6 +80,7 @@ func (h *ConfigHandler) UpdateTemplate(c *gin.Context) {
 	tpl.Version++
 
 	h.DB.Save(&tpl)
+	writeAudit(h.DB, c, "update", "template", fmt.Sprintf("updated template %s (id=%d) to v%d", tpl.Name, tpl.ID, tpl.Version))
 	c.JSON(http.StatusOK, tpl)
 }
 
@@ -69,6 +89,7 @@ func (h *ConfigHandler) DeleteTemplate(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	writeAudit(h.DB, c, "delete", "template", fmt.Sprintf("deleted template id=%s", c.Param("id")))
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 }
 
@@ -106,12 +127,8 @@ func (h *ConfigHandler) PushConfig(c *gin.Context) {
 	}
 	h.DB.Create(&record)
 
-	// Push config via MQTT
-	if h.MQTT != nil && h.MQTT.IsConnected() {
-		topic := fmt.Sprintf("nexusgate/devices/%s/config", device.MAC)
-		h.MQTT.Publish(topic, 1, false, content)
-	}
-
+	publishConfig(h.MQTT, device.MAC, record.ID, content)
+	writeAudit(h.DB, c, "push", "config", fmt.Sprintf("pushed config to device %s (config_id=%d)", device.Name, record.ID))
 	c.JSON(http.StatusOK, gin.H{"message": "config push initiated", "config_id": record.ID})
 }
 

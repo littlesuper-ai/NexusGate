@@ -160,17 +160,16 @@ func (h *NetworkHandler) ApplyMWAN(c *gin.Context) {
 
 	uci := generateMWANUCI(wans, policies, rules)
 
-	if h.MQTT != nil && h.MQTT.IsConnected() {
-		topic := fmt.Sprintf("nexusgate/devices/%s/config", device.MAC)
-		h.MQTT.Publish(topic, 1, false, uci)
-	}
-	h.DB.Create(&model.DeviceConfig{DeviceID: device.ID, Content: uci, Status: "pending"})
+	record := model.DeviceConfig{DeviceID: device.ID, Content: uci, Status: "pending"}
+	h.DB.Create(&record)
+	publishConfig(h.MQTT, device.MAC, record.ID, uci)
 	writeAudit(h.DB, c, "apply", "mwan", fmt.Sprintf("applied MWAN config to device %s", device.Name))
-	c.JSON(http.StatusOK, gin.H{"message": "mwan3 config pushed", "uci": uci})
+	c.JSON(http.StatusOK, gin.H{"message": "mwan3 config pushed", "config_id": record.ID})
 }
 
 func generateMWANUCI(wans []model.WANInterface, policies []model.MWANPolicy, rules []model.MWANRule) string {
 	var b strings.Builder
+	b.WriteString("package mwan3\n\n")
 	for _, w := range wans {
 		b.WriteString(fmt.Sprintf("config interface '%s'\n", w.Name))
 		b.WriteString("\toption enabled '1'\n")
@@ -340,17 +339,16 @@ func (h *NetworkHandler) ApplyDHCP(c *gin.Context) {
 
 	uci := generateDHCPUCI(pools, leases)
 
-	if h.MQTT != nil && h.MQTT.IsConnected() {
-		topic := fmt.Sprintf("nexusgate/devices/%s/config", device.MAC)
-		h.MQTT.Publish(topic, 1, false, uci)
-	}
-	h.DB.Create(&model.DeviceConfig{DeviceID: device.ID, Content: uci, Status: "pending"})
+	record := model.DeviceConfig{DeviceID: device.ID, Content: uci, Status: "pending"}
+	h.DB.Create(&record)
+	publishConfig(h.MQTT, device.MAC, record.ID, uci)
 	writeAudit(h.DB, c, "apply", "dhcp", fmt.Sprintf("applied DHCP config to device %s", device.Name))
-	c.JSON(http.StatusOK, gin.H{"message": "dhcp config pushed", "uci": uci})
+	c.JSON(http.StatusOK, gin.H{"message": "dhcp config pushed", "config_id": record.ID})
 }
 
 func generateDHCPUCI(pools []model.DHCPPool, leases []model.StaticLease) string {
 	var b strings.Builder
+	b.WriteString("package dhcp\n\n")
 	for _, p := range pools {
 		b.WriteString(fmt.Sprintf("config dhcp '%s'\n", p.Interface))
 		b.WriteString(fmt.Sprintf("\toption interface '%s'\n", p.Interface))
@@ -395,17 +393,16 @@ func (h *NetworkHandler) ApplyVLAN(c *gin.Context) {
 
 	uci := generateVLANUCI(vlans)
 
-	if h.MQTT != nil && h.MQTT.IsConnected() {
-		topic := fmt.Sprintf("nexusgate/devices/%s/config", device.MAC)
-		h.MQTT.Publish(topic, 1, false, uci)
-	}
-	h.DB.Create(&model.DeviceConfig{DeviceID: device.ID, Content: uci, Status: "pending"})
+	record := model.DeviceConfig{DeviceID: device.ID, Content: uci, Status: "pending"}
+	h.DB.Create(&record)
+	publishConfig(h.MQTT, device.MAC, record.ID, uci)
 	writeAudit(h.DB, c, "apply", "vlan", fmt.Sprintf("applied VLAN config to device %s", device.Name))
-	c.JSON(http.StatusOK, gin.H{"message": "vlan config pushed", "uci": uci})
+	c.JSON(http.StatusOK, gin.H{"message": "vlan config pushed", "config_id": record.ID})
 }
 
 func generateVLANUCI(vlans []model.VLAN) string {
 	var b strings.Builder
+	b.WriteString("package network\n\n")
 	for _, v := range vlans {
 		// Bridge VLAN filtering entry
 		b.WriteString(fmt.Sprintf("config bridge-vlan 'brvlan%d'\n", v.VID))

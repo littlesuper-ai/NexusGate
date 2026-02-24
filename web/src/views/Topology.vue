@@ -17,9 +17,41 @@ import { ref, onMounted, markRaw } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import { getDevices } from '../api'
+import { useWebSocket } from '../composables/useWebSocket'
 
 const chartRef = ref<HTMLElement>()
 let chart: echarts.ECharts | null = null
+let deviceMap = new Map<string, Device>()
+
+const { on: wsOn } = useWebSocket()
+
+// Real-time status updates — update node colors
+wsOn('device_status', (data: any) => {
+  if (!chart) return
+  const deviceId = data.device_id
+  const status = data.status || 'online'
+  const nodeId = `device-${deviceId}`
+  const color = status === 'online' ? '#67C23A' : status === 'offline' ? '#F56C6C' : '#909399'
+
+  const option = chart.getOption() as any
+  if (option?.series?.[0]?.nodes) {
+    const node = option.series[0].nodes.find((n: any) => n.id === nodeId)
+    if (node) {
+      node.itemStyle = { ...node.itemStyle, color }
+    }
+    // Also update link style
+    for (const link of option.series[0].links || []) {
+      if (link.target === nodeId) {
+        link.lineStyle = {
+          ...link.lineStyle,
+          color: status === 'online' ? '#67C23A' : '#ddd',
+          type: status === 'online' ? 'solid' : 'dashed',
+        }
+      }
+    }
+    chart.setOption(option, true)
+  }
+})
 
 interface Device {
   id: number; name: string; ip_address: string; status: string

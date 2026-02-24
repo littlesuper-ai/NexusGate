@@ -130,23 +130,17 @@ func (h *FirewallHandler) ApplyFirewall(c *gin.Context) {
 
 	uci := generateFirewallUCI(zones, rules)
 
-	if h.MQTT != nil && h.MQTT.IsConnected() {
-		topic := fmt.Sprintf("nexusgate/devices/%s/config", device.MAC)
-		h.MQTT.Publish(topic, 1, false, uci)
-	}
-
-	h.DB.Create(&model.DeviceConfig{
-		DeviceID: device.ID,
-		Content:  uci,
-		Status:   "pending",
-	})
+	record := model.DeviceConfig{DeviceID: device.ID, Content: uci, Status: "pending"}
+	h.DB.Create(&record)
+	publishConfig(h.MQTT, device.MAC, record.ID, uci)
 
 	writeAudit(h.DB, c, "apply", "firewall", fmt.Sprintf("applied firewall config to device %s", device.Name))
-	c.JSON(http.StatusOK, gin.H{"message": "firewall config pushed", "uci": uci})
+	c.JSON(http.StatusOK, gin.H{"message": "firewall config pushed", "config_id": record.ID})
 }
 
 func generateFirewallUCI(zones []model.FirewallZone, rules []model.FirewallRule) string {
 	var b strings.Builder
+	b.WriteString("package firewall\n\n")
 
 	b.WriteString("config defaults\n")
 	b.WriteString("\toption syn_flood '1'\n")

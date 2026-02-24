@@ -41,6 +41,13 @@ get_firmware() {
     echo "${DISTRIB_REVISION:-unknown}"
 }
 
+# MQTT client ID for persistent sessions
+get_client_id() {
+    local mac
+    mac=$(get_mac | tr -d ':')
+    echo "nexusgate-${mac}"
+}
+
 # Register device with NexusGate server
 register() {
     local mac name model firmware
@@ -101,16 +108,49 @@ publish_heartbeat() {
 {"mac":"$mac","cpu_usage":$cpu_usage,"mem_usage":$mem_usage,"mem_total":$mem_total,"mem_free":$mem_free,"rx_bytes":$rx_bytes,"tx_bytes":$tx_bytes,"conntrack":$conntrack,"uptime_secs":$uptime_secs,"load_avg":"$load_avg"}
 EOF
 )
-    mosquitto_pub -h "$MQTT_BROKER" -p "$MQTT_PORT" -t "$topic" -m "$payload" -q 1
+    mosquitto_pub -h "$MQTT_BROKER" -p "$MQTT_PORT" \
+        -i "$(get_client_id)-pub" \
+        -t "$topic" -m "$payload" -q 1
+}
+
+# Firmware upgrade: download, verify SHA256, and flash
+sysupgrade_url() {
+    local url="$1"
+    local expected_sha256="$2"
+    local firmware_path="/tmp/firmware.bin"
+
+    logger -t nexusgate "Downloading firmware from $url"
+    wget -q -O "$firmware_path" "$url" 2>/dev/null
+    if [ $? -ne 0 ]; then
+        logger -t nexusgate "ERROR: firmware download failed"
+        return 1
+    fi
+
+    # Verify SHA256 if provided
+    if [ -n "$expected_sha256" ]; then
+        local actual_sha256
+        actual_sha256=$(sha256sum "$firmware_path" | cut -d' ' -f1)
+        if [ "$actual_sha256" != "$expected_sha256" ]; then
+            logger -t nexusgate "ERROR: SHA256 mismatch (expected=$expected_sha256, got=$actual_sha256)"
+            rm -f "$firmware_path"
+            return 1
+        fi
+        logger -t nexusgate "SHA256 verified OK"
+    fi
+
+    logger -t nexusgate "Starting sysupgrade..."
+    sysupgrade "$firmware_path"
 }
 
 # Subscribe to commands from server
 subscribe_commands() {
-    local mac topic
+    local mac topic client_id
     mac=$(get_mac)
     topic="nexusgate/devices/${mac}/command"
+    client_id="$(get_client_id)-cmd"
 
-    mosquitto_sub -h "$MQTT_BROKER" -p "$MQTT_PORT" -t "$topic" -q 1 | while read -r msg; do
+    mosquitto_sub -h "$MQTT_BROKER" -p "$MQTT_PORT" \
+        -i "$client_id" -q 1 -t "$topic" | while read -r msg; do
         local action
         action=$(echo "$msg" | jsonfilter -e '@.action' 2>/dev/null)
 
@@ -124,11 +164,22 @@ subscribe_commands() {
                 # Config content arrives on the config topic
                 ;;
             upgrade)
-                local url
+                local url sha256 upgrade_id
                 url=$(echo "$msg" | jsonfilter -e '@.url' 2>/dev/null)
+                sha256=$(echo "$msg" | jsonfilter -e '@.sha256' 2>/dev/null)
+                upgrade_id=$(echo "$msg" | jsonfilter -e '@.upgrade_id' 2>/dev/null)
                 if [ -n "$url" ]; then
                     logger -t nexusgate "Starting firmware upgrade from $url"
-                    sysupgrade_url "$url"
+                    if sysupgrade_url "$url" "$sha256"; then
+                        # ACK success (this won't run if sysupgrade reboots — that's OK)
+                        mosquitto_pub -h "$MQTT_BROKER" -p "$MQTT_PORT" \
+                            -t "nexusgate/devices/${mac}/upgrade/ack" \
+                            -m "{\"upgrade_id\":$upgrade_id,\"status\":\"success\"}" -q 1
+                    else
+                        mosquitto_pub -h "$MQTT_BROKER" -p "$MQTT_PORT" \
+                            -t "nexusgate/devices/${mac}/upgrade/ack" \
+                            -m "{\"upgrade_id\":$upgrade_id,\"status\":\"failed\",\"error\":\"download or verification failed\"}" -q 1
+                    fi
                 fi
                 ;;
             *)
@@ -138,15 +189,45 @@ subscribe_commands() {
     done &
 }
 
-# Subscribe to config pushes
+# Subscribe to config pushes (JSON envelope: {"config_id": N, "content": "..."})
 subscribe_config() {
-    local mac topic
+    local mac topic client_id
     mac=$(get_mac)
     topic="nexusgate/devices/${mac}/config"
+    client_id="$(get_client_id)-cfg"
 
-    mosquitto_sub -h "$MQTT_BROKER" -p "$MQTT_PORT" -t "$topic" -q 1 | while read -r msg; do
-        logger -t nexusgate "Applying pushed configuration"
-        echo "$msg" | uci import 2>/dev/null && uci commit && /etc/init.d/network reload
+    mosquitto_sub -h "$MQTT_BROKER" -p "$MQTT_PORT" \
+        -i "$client_id" -q 1 -t "$topic" | while read -r msg; do
+        local config_id content
+        config_id=$(echo "$msg" | jsonfilter -e '@.config_id' 2>/dev/null)
+        content=$(echo "$msg" | jsonfilter -e '@.content' 2>/dev/null)
+
+        if [ -z "$content" ]; then
+            # Legacy: raw UCI text without envelope
+            content="$msg"
+        fi
+
+        logger -t nexusgate "Applying pushed configuration (config_id=$config_id)"
+
+        local status="applied"
+        local error_msg=""
+        echo "$content" | uci import 2>/tmp/nexusgate_uci_err
+        if [ $? -ne 0 ]; then
+            status="failed"
+            error_msg=$(cat /tmp/nexusgate_uci_err 2>/dev/null)
+            logger -t nexusgate "ERROR: uci import failed: $error_msg"
+        else
+            uci commit
+            /etc/init.d/network reload 2>/dev/null
+            logger -t nexusgate "Configuration applied successfully"
+        fi
+
+        # Send ACK if we have a config_id
+        if [ -n "$config_id" ] && [ "$config_id" != "0" ]; then
+            mosquitto_pub -h "$MQTT_BROKER" -p "$MQTT_PORT" \
+                -t "nexusgate/devices/${mac}/config/ack" \
+                -m "{\"config_id\":$config_id,\"status\":\"$status\",\"error\":\"$error_msg\"}" -q 1
+        fi
     done &
 }
 

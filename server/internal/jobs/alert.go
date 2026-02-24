@@ -23,7 +23,7 @@ func getAlertThresholds(db *gorm.DB) alertThresholds {
 	t := alertThresholds{CPU: 90, Memory: 90, Conntrack: 50000}
 	readFloat := func(key string, target *float64) {
 		var s model.SystemSetting
-		if err := db.Where("`key` = ?", key).First(&s).Error; err == nil {
+		if err := db.Where("\"key\" = ?", key).First(&s).Error; err == nil {
 			if v, err := strconv.ParseFloat(s.Value, 64); err == nil && v > 0 {
 				*target = v
 			}
@@ -32,7 +32,7 @@ func getAlertThresholds(db *gorm.DB) alertThresholds {
 	readFloat("alert_cpu_threshold", &t.CPU)
 	readFloat("alert_mem_threshold", &t.Memory)
 	var s model.SystemSetting
-	if err := db.Where("`key` = ?", "alert_conntrack_threshold").First(&s).Error; err == nil {
+	if err := db.Where("\"key\" = ?", "alert_conntrack_threshold").First(&s).Error; err == nil {
 		if v, err := strconv.Atoi(s.Value); err == nil && v > 0 {
 			t.Conntrack = v
 		}
@@ -101,14 +101,14 @@ func EvaluateDeviceAlerts(db *gorm.DB, hub *ws.Hub, deviceID uint, deviceName st
 
 func dispatchNotification(db *gorm.DB, alert model.Alert) {
 	var methodSetting model.SystemSetting
-	if err := db.Where("`key` = ?", "alert_notify_method").First(&methodSetting).Error; err != nil {
+	if err := db.Where("\"key\" = ?", "alert_notify_method").First(&methodSetting).Error; err != nil {
 		return // No notification method configured
 	}
 
 	switch methodSetting.Value {
 	case "webhook":
 		var urlSetting model.SystemSetting
-		if err := db.Where("`key` = ?", "alert_webhook_url").First(&urlSetting).Error; err != nil || urlSetting.Value == "" {
+		if err := db.Where("\"key\" = ?", "alert_webhook_url").First(&urlSetting).Error; err != nil || urlSetting.Value == "" {
 			log.Println("alert webhook URL not configured")
 			return
 		}

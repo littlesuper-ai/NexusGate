@@ -108,17 +108,21 @@ func (h *Hub) Broadcast(msgType string, data any) {
 	}
 
 	h.mu.RLock()
-	defer h.mu.RUnlock()
-
+	var dead []*websocket.Conn
 	for conn := range h.clients {
 		if err := conn.WriteMessage(websocket.TextMessage, payload); err != nil {
 			conn.Close()
-			go func(c *websocket.Conn) {
-				h.mu.Lock()
-				delete(h.clients, c)
-				h.mu.Unlock()
-			}(conn)
+			dead = append(dead, conn)
 		}
+	}
+	h.mu.RUnlock()
+
+	if len(dead) > 0 {
+		h.mu.Lock()
+		for _, c := range dead {
+			delete(h.clients, c)
+		}
+		h.mu.Unlock()
 	}
 }
 
