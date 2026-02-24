@@ -38,5 +38,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&model.FirewallRule{},
 		&model.WireGuardInterface{},
 		&model.WireGuardPeer{},
+		&model.Firmware{},
+		&model.FirmwareUpgrade{},
 	)
 }

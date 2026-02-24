@@ -50,6 +50,18 @@ const router = createRouter({
       meta: { title: '防火墙' },
     },
     {
+      path: '/firmware',
+      name: 'Firmware',
+      component: () => import('../views/Firmware.vue'),
+      meta: { title: '固件管理' },
+    },
+    {
+      path: '/topology',
+      name: 'Topology',
+      component: () => import('../views/Topology.vue'),
+      meta: { title: '网络拓扑' },
+    },
+    {
       path: '/monitoring',
       name: 'Monitoring',
       component: () => import('../views/Monitoring.vue'),

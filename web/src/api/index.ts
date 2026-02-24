@@ -105,4 +105,18 @@ export const updateVPNPeer = (id: number, data: any) => api.put(`/vpn/peers/${id
 export const deleteVPNPeer = (id: number) => api.delete(`/vpn/peers/${id}`)
 export const applyVPN = (deviceId: number) => api.post(`/vpn/apply/${deviceId}`)
 
+// Firmware
+export const getFirmwares = (target?: string) =>
+  api.get('/firmware', { params: target ? { target } : {} })
+export const uploadFirmware = (formData: FormData) =>
+  api.post('/firmware/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } })
+export const deleteFirmware = (id: number) => api.delete(`/firmware/${id}`)
+export const markFirmwareStable = (id: number) => api.post(`/firmware/${id}/stable`)
+export const pushFirmwareUpgrade = (data: { device_id: number; firmware_id: number }) =>
+  api.post('/firmware/upgrade', data)
+export const batchFirmwareUpgrade = (data: { firmware_id: number; group?: string; model?: string }) =>
+  api.post('/firmware/upgrade/batch', data)
+export const getUpgradeHistory = (deviceId?: number) =>
+  api.get('/firmware/upgrades', { params: deviceId ? { device_id: deviceId } : {} })
+
 export default api

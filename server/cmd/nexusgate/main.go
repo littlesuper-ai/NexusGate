@@ -24,6 +24,8 @@ func main() {
 		log.Fatalf("failed to migrate database: %v", err)
 	}
 
+	store.SeedAdminUser(db)
+
 	mqttClient, err := mqtt.NewClient(cfg)
 	if err != nil {
 		log.Printf("warning: MQTT connection failed: %v", err)

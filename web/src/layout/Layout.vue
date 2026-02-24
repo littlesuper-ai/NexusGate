@@ -30,7 +30,12 @@
           </template>
           <el-menu-item index="/firewall">防火墙</el-menu-item>
           <el-menu-item index="/vpn">VPN</el-menu-item>
+          <el-menu-item index="/topology">网络拓扑</el-menu-item>
         </el-sub-menu>
+        <el-menu-item index="/firmware">
+          <el-icon><Upload /></el-icon>
+          <span>固件管理</span>
+        </el-menu-item>
         <el-menu-item index="/monitoring">
           <el-icon><DataLine /></el-icon>
           <span>监控中心</span>
@@ -72,7 +77,7 @@ import { computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import {
   Monitor, Connection, Document, Setting,
-  DataLine, User, List, ArrowDown,
+  DataLine, User, List, ArrowDown, Upload,
 } from '@element-plus/icons-vue'
 
 const route = useRoute()

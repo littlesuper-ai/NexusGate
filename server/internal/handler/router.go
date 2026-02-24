@@ -24,6 +24,7 @@ func SetupRouter(db *gorm.DB, mqttClient mqtt.Client, cfg *config.Config) *gin.E
 	configHandler := &ConfigHandler{DB: db, MQTT: mqttClient}
 	firewallHandler := &FirewallHandler{DB: db, MQTT: mqttClient}
 	vpnHandler := &VPNHandler{DB: db, MQTT: mqttClient}
+	firmwareHandler := &FirmwareHandler{DB: db, MQTT: mqttClient}
 
 	// Public routes
 	pub := r.Group("/api/v1")
@@ -85,6 +86,16 @@ func SetupRouter(db *gorm.DB, mqttClient mqtt.Client, cfg *config.Config) *gin.E
 		api.PUT("/vpn/peers/:id", vpnHandler.UpdatePeer)
 		api.DELETE("/vpn/peers/:id", vpnHandler.DeletePeer)
 		api.POST("/vpn/apply/:device_id", vpnHandler.ApplyVPN)
+
+		// Firmware
+		api.GET("/firmware", firmwareHandler.List)
+		api.POST("/firmware/upload", firmwareHandler.Upload)
+		api.GET("/firmware/download/:filename", firmwareHandler.Download)
+		api.DELETE("/firmware/:id", firmwareHandler.Delete)
+		api.POST("/firmware/:id/stable", firmwareHandler.MarkStable)
+		api.POST("/firmware/upgrade", firmwareHandler.PushUpgrade)
+		api.POST("/firmware/upgrade/batch", firmwareHandler.BatchUpgrade)
+		api.GET("/firmware/upgrades", firmwareHandler.UpgradeHistory)
 
 		// Dashboard
 		api.GET("/dashboard/summary", deviceHandler.DashboardSummary)
