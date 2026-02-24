@@ -1,0 +1,61 @@
+# NexusGate Enterprise Package List
+# Base packages included by default are not listed here
+
+# === Networking ===
+mwan3
+luci-app-mwan3
+kmod-8021q
+tcpdump-mini
+iperf3
+
+# === Firewall ===
+firewall4
+nftables
+
+# === DNS/DHCP ===
+dnsmasq-full
+-dnsmasq
+
+# === VPN ===
+wireguard-tools
+kmod-wireguard
+luci-proto-wireguard
+openvpn-openssl
+luci-app-openvpn
+
+# === QoS ===
+sqm-scripts
+luci-app-sqm
+
+# === Monitoring ===
+collectd
+collectd-mod-cpu
+collectd-mod-interface
+collectd-mod-load
+collectd-mod-memory
+collectd-mod-network
+collectd-mod-conntrack
+luci-app-statistics
+vnstat2
+luci-app-vnstat2
+snmpd
+
+# === MQTT (for NexusGate agent) ===
+mosquitto-client-ssl
+jq
+jsonfilter
+
+# === Remote access ===
+openssh-sftp-server
+
+# === LuCI Web UI ===
+luci
+luci-ssl
+luci-theme-openwrt-2020
+
+# === Utilities ===
+curl
+wget-ssl
+nano
+htop
+ethtool

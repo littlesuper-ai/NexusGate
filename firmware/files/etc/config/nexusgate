@@ -1,0 +1,9 @@
+# Default NexusGate agent config (overwrite server_url before deployment)
+
+config agent 'settings'
+    option enabled '1'
+    option server_url 'http://nexusgate.local:8080'
+    option mqtt_broker 'nexusgate.local'
+    option mqtt_port '1883'
+    option heartbeat_interval '30'
+    option device_name ''

@@ -1,0 +1,39 @@
+---
+# Setup a new OpenWrt device with NexusGate agent
+- name: Setup NexusGate on OpenWrt devices
+  hosts: gateways
+  gather_facts: false
+  vars:
+    agent_version: "1.0.0"
+
+  tasks:
+    - name: Install required packages
+      raw: opkg update && opkg install mosquitto-client-ssl jq curl
+      changed_when: true
+
+    - name: Copy agent script
+      copy:
+        src: ../../../packages/nexusgate-agent/files/nexusgate-agent.sh
+        dest: /usr/bin/nexusgate-agent
+        mode: '0755'
+
+    - name: Copy init script
+      copy:
+        src: ../../../packages/nexusgate-agent/files/nexusgate-agent.init
+        dest: /etc/init.d/nexusgate-agent
+        mode: '0755'
+
+    - name: Configure agent
+      raw: |
+        uci set nexusgate.settings=agent
+        uci set nexusgate.settings.enabled='1'
+        uci set nexusgate.settings.server_url='{{ nexusgate_server }}'
+        uci set nexusgate.settings.mqtt_broker='{{ mqtt_broker }}'
+        uci set nexusgate.settings.mqtt_port='1883'
+        uci set nexusgate.settings.heartbeat_interval='30'
+        uci commit nexusgate
+      changed_when: true
+
+    - name: Enable and start agent
+      raw: /etc/init.d/nexusgate-agent enable && /etc/init.d/nexusgate-agent start
+      changed_when: true

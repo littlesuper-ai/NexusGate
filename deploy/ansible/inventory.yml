@@ -1,0 +1,19 @@
+all:
+  children:
+    gateways:
+      hosts:
+        # Add your OpenWrt devices here
+        # gateway-hq:
+        #   ansible_host: 192.168.1.1
+        #   ansible_user: root
+        #   device_group: headquarters
+        # gateway-branch1:
+        #   ansible_host: 10.0.1.1
+        #   ansible_user: root
+        #   device_group: branch
+      vars:
+        ansible_connection: ssh
+        ansible_user: root
+        ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+        nexusgate_server: "http://nexusgate.local:8080"
+        mqtt_broker: "nexusgate.local"
