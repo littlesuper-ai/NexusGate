@@ -22,6 +22,11 @@ services:
       - mqttdata:/mosquitto/data
     ports:
       - "1883:1883"
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -t '$$SYS/#' -C 1 -W 3 || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   server:
     build:
@@ -38,11 +43,16 @@ services:
       JWT_SECRET: "change-me-in-production"
     ports:
       - "8080:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
     depends_on:
       postgres:
         condition: service_healthy
       mosquitto:
-        condition: service_started
+        condition: service_healthy
 
   web:
     build:
@@ -50,6 +60,11 @@ services:
       dockerfile: Dockerfile
     ports:
       - "3000:80"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:80/ || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
     depends_on:
       - server
 
@@ -67,8 +82,12 @@ services:
       GF_SECURITY_ADMIN_PASSWORD: admin
     volumes:
       - grafanadata:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
     ports:
       - "3001:3000"
+    depends_on:
+      - prometheus
 
 volumes:
   pgdata:

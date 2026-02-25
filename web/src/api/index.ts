@@ -19,6 +19,10 @@ api.interceptors.response.use(
     if (err.response?.status === 401) {
       localStorage.removeItem('token')
       window.location.href = '/login'
+    } else if (err.response?.status === 403) {
+      import('element-plus').then(({ ElMessage }) => {
+        ElMessage.error('权限不足，无法执行此操作')
+      })
     }
     return Promise.reject(err)
   }
@@ -57,6 +61,9 @@ export const bulkRebootDevices = (ids: number[]) =>
 
 export const getDeviceMetrics = (id: number) =>
   api.get(`/devices/${id}/metrics`)
+
+export const exportDevicesCSV = (params?: Record<string, string>) =>
+  api.get('/devices/export', { params, responseType: 'blob' })
 
 // Config
 export const getTemplates = (category?: string) =>

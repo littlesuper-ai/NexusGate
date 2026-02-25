@@ -67,16 +67,17 @@ func checkOfflineDevices(db *gorm.DB, hub *ws.Hub) {
 	}
 }
 
-// StartMetricsCleanup runs a daily cleanup of old device metrics.
+// StartMetricsCleanup runs a daily cleanup of old device metrics and audit logs.
 func StartMetricsCleanup(db *gorm.DB) {
 	go func() {
 		ticker := time.NewTicker(24 * time.Hour)
 		defer ticker.Stop()
 		for range ticker.C {
 			cleanupOldMetrics(db)
+			cleanupOldAuditLogs(db)
 		}
 	}()
-	log.Println("metrics cleanup job started (interval: 24h)")
+	log.Println("metrics/audit cleanup job started (interval: 24h)")
 }
 
 func cleanupOldMetrics(db *gorm.DB) {
@@ -93,5 +94,22 @@ func cleanupOldMetrics(db *gorm.DB) {
 	result := db.Where("collected_at < ?", cutoff).Delete(&model.DeviceMetrics{})
 	if result.RowsAffected > 0 {
 		log.Printf("cleaned up %d old metric records (retention: %d days)", result.RowsAffected, retentionDays)
+	}
+}
+
+func cleanupOldAuditLogs(db *gorm.DB) {
+	retentionDays := 90
+
+	var setting model.SystemSetting
+	if err := db.Where("\"key\" = ?", "audit_retention_days").First(&setting).Error; err == nil {
+		if v, err := strconv.Atoi(setting.Value); err == nil && v > 0 {
+			retentionDays = v
+		}
+	}
+
+	cutoff := time.Now().AddDate(0, 0, -retentionDays)
+	result := db.Where("created_at < ?", cutoff).Delete(&model.AuditLog{})
+	if result.RowsAffected > 0 {
+		log.Printf("cleaned up %d old audit log records (retention: %d days)", result.RowsAffected, retentionDays)
 	}
 }

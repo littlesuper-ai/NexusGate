@@ -31,11 +31,13 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 	var user model.User
 	if err := h.DB.Where("username = ?", req.Username).First(&user).Error; err != nil {
+		writeLoginAudit(h.DB, c, 0, req.Username, "login failed: user not found")
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 		return
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
+		writeLoginAudit(h.DB, c, user.ID, user.Username, "login failed: wrong password")
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid credentials"})
 		return
 	}
@@ -57,6 +59,7 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	writeLoginAudit(h.DB, c, user.ID, user.Username, "login successful")
 	c.JSON(http.StatusOK, gin.H{
 		"token": tokenStr,
 		"user": gin.H{

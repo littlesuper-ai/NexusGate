@@ -5,6 +5,7 @@
         <el-input v-model="search" placeholder="搜索设备名称/MAC/IP" clearable style="width: 300px" />
       </el-col>
       <el-col :span="12" style="text-align: right">
+        <el-button @click="handleExport" style="margin-right: 12px">导出 CSV</el-button>
         <el-radio-group v-model="statusFilter" @change="fetchDevices">
           <el-radio-button value="">全部</el-radio-button>
           <el-radio-button value="online">在线</el-radio-button>
@@ -73,7 +74,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getDevices, rebootDevice, deleteDevice, bulkDeleteDevices, bulkRebootDevices } from '../api'
+import { getDevices, rebootDevice, deleteDevice, bulkDeleteDevices, bulkRebootDevices, exportDevicesCSV } from '../api'
 
 interface Device {
   id: number
@@ -159,6 +160,22 @@ const handleBulkDelete = async () => {
   await bulkDeleteDevices(ids)
   ElMessage.success('已删除')
   fetchDevices()
+}
+
+const handleExport = async () => {
+  try {
+    const params: Record<string, string> = {}
+    if (statusFilter.value) params.status = statusFilter.value
+    const { data } = await exportDevicesCSV(params)
+    const url = URL.createObjectURL(data)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'devices.csv'
+    a.click()
+    URL.revokeObjectURL(url)
+  } catch {
+    ElMessage.error('导出失败')
+  }
 }
 
 onMounted(fetchDevices)

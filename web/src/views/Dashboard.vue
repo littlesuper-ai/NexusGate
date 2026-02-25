@@ -1,29 +1,40 @@
 <template>
   <div>
     <el-row :gutter="16" class="stat-cards">
-      <el-col :span="5">
+      <el-col :span="4">
         <el-card shadow="hover">
           <el-statistic title="设备总数" :value="summary.total_devices" />
         </el-card>
       </el-col>
-      <el-col :span="5">
+      <el-col :span="4">
         <el-card shadow="hover">
           <el-statistic title="在线设备" :value="summary.online_devices">
             <template #suffix><span style="color: #67c23a; font-size: 14px">台</span></template>
           </el-statistic>
         </el-card>
       </el-col>
-      <el-col :span="5">
+      <el-col :span="4">
         <el-card shadow="hover">
           <el-statistic title="离线设备" :value="summary.offline_devices">
             <template #suffix><span style="color: #f56c6c; font-size: 14px">台</span></template>
           </el-statistic>
         </el-card>
       </el-col>
-      <el-col :span="5">
+      <el-col :span="4">
         <el-card shadow="hover">
           <el-statistic title="未知设备" :value="summary.unknown_devices">
             <template #suffix><span style="color: #909399; font-size: 14px">台</span></template>
+          </el-statistic>
+        </el-card>
+      </el-col>
+      <el-col :span="4">
+        <el-card shadow="hover" :body-style="{ cursor: 'pointer' }" @click="$router.push('/alerts')">
+          <el-statistic title="未处理告警" :value="alertSummary.unresolved">
+            <template #suffix>
+              <span v-if="alertSummary.critical > 0" style="color: #f56c6c; font-size: 12px">
+                ({{ alertSummary.critical }} 严重)
+              </span>
+            </template>
           </el-statistic>
         </el-card>
       </el-col>
@@ -91,15 +102,26 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { getDashboardSummary, getDevices, getTemplates, getAuditLogs } from '../api'
+import { getDashboardSummary, getDevices, getTemplates, getAuditLogs, getAlertSummary } from '../api'
 import { useWebSocket } from '../composables/useWebSocket'
 
 const summary = ref({ total_devices: 0, online_devices: 0, offline_devices: 0, unknown_devices: 0 })
+const alertSummary = ref({ total: 0, unresolved: 0, warning: 0, critical: 0 })
 const devices = ref<any[]>([])
 const templateCount = ref(0)
 const auditLogs = ref<any[]>([])
 
 const { connected: wsConnected, on: wsOn } = useWebSocket()
+
+// Refresh summary counts from API
+const refreshSummary = async () => {
+  const [s, al] = await Promise.all([
+    getDashboardSummary().catch(() => ({ data: summary.value })),
+    getAlertSummary().catch(() => ({ data: alertSummary.value })),
+  ])
+  summary.value = s.data
+  alertSummary.value = al.data
+}
 
 // Handle real-time device status updates
 wsOn('device_status', (data: any) => {
@@ -110,6 +132,13 @@ wsOn('device_status', (data: any) => {
     devices.value[idx].status = data.status
     devices.value[idx].uptime_secs = data.uptime_secs
   }
+  // Refresh summary when device status changes
+  refreshSummary()
+})
+
+// Handle real-time alert events
+wsOn('alert', () => {
+  refreshSummary()
 })
 
 const formatTime = (t: string) => {
@@ -125,16 +154,18 @@ const logType = (action: string) => {
 }
 
 onMounted(async () => {
-  const [s, d, t, a] = await Promise.all([
+  const [s, d, t, a, al] = await Promise.all([
     getDashboardSummary().catch(() => ({ data: { total_devices: 0, online_devices: 0, offline_devices: 0, unknown_devices: 0 } })),
     getDevices().catch(() => ({ data: [] })),
     getTemplates().catch(() => ({ data: [] })),
     getAuditLogs().catch(() => ({ data: [] })),
+    getAlertSummary().catch(() => ({ data: { total: 0, unresolved: 0, warning: 0, critical: 0 } })),
   ])
   summary.value = s.data
   devices.value = d.data
   templateCount.value = t.data.length
   auditLogs.value = a.data.slice(0, 10)
+  alertSummary.value = al.data
 })
 </script>
 

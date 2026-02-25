@@ -95,13 +95,13 @@ const router = createRouter({
       path: '/users',
       name: 'Users',
       component: () => import('../views/Users.vue'),
-      meta: { title: '用户管理' },
+      meta: { title: '用户管理', requiresAdmin: true },
     },
     {
       path: '/audit',
       name: 'Audit',
       component: () => import('../views/Audit.vue'),
-      meta: { title: '审计日志' },
+      meta: { title: '审计日志', requiresAdmin: true },
     },
     {
       path: '/settings',
@@ -120,6 +120,10 @@ router.beforeEach((to, _from, next) => {
   const token = localStorage.getItem('token')
   if (!token) {
     next('/login')
+    return
+  }
+  if (to.meta.requiresAdmin && localStorage.getItem('role') !== 'admin') {
+    next('/dashboard')
     return
   }
   next()

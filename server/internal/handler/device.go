@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"encoding/csv"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -236,6 +238,52 @@ func (h *DeviceHandler) BulkReboot(c *gin.Context) {
 
 	writeAudit(h.DB, c, "bulk_reboot", "device", fmt.Sprintf("bulk rebooted %d device(s)", count))
 	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("reboot command sent to %d device(s)", count)})
+}
+
+// Export returns a CSV file of all devices.
+func (h *DeviceHandler) Export(c *gin.Context) {
+	var devices []model.Device
+	query := h.DB.Model(&model.Device{})
+
+	if group := c.Query("group"); group != "" {
+		query = query.Where("\"group\" = ?", group)
+	}
+	if status := c.Query("status"); status != "" {
+		query = query.Where("status = ?", status)
+	}
+
+	query.Order("id").Find(&devices)
+
+	c.Header("Content-Type", "text/csv; charset=utf-8")
+	c.Header("Content-Disposition", "attachment; filename=devices.csv")
+	// UTF-8 BOM for Excel compatibility
+	c.Writer.Write([]byte{0xEF, 0xBB, 0xBF})
+
+	w := csv.NewWriter(c.Writer)
+	w.Write([]string{"ID", "名称", "MAC", "IP地址", "型号", "固件", "状态", "分组", "标签", "CPU%", "内存%", "注册时间", "最后在线"})
+
+	for _, d := range devices {
+		lastSeen := ""
+		if d.LastSeenAt != nil {
+			lastSeen = d.LastSeenAt.Format(time.RFC3339)
+		}
+		w.Write([]string{
+			strconv.FormatUint(uint64(d.ID), 10),
+			d.Name,
+			d.MAC,
+			d.IPAddress,
+			d.Model,
+			d.Firmware,
+			string(d.Status),
+			d.Group,
+			d.Tags,
+			fmt.Sprintf("%.1f", d.CPUUsage),
+			fmt.Sprintf("%.1f", d.MemUsage),
+			d.RegisteredAt.Format(time.RFC3339),
+			lastSeen,
+		})
+	}
+	w.Flush()
 }
 
 func (h *DeviceHandler) DashboardSummary(c *gin.Context) {

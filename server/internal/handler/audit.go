@@ -23,3 +23,15 @@ func writeAudit(db *gorm.DB, c *gin.Context, action, resource, detail string) {
 		IP:       c.ClientIP(),
 	})
 }
+
+// writeLoginAudit creates an audit log for login events (before JWT context is set).
+func writeLoginAudit(db *gorm.DB, c *gin.Context, userID uint, username, detail string) {
+	db.Create(&model.AuditLog{
+		UserID:   userID,
+		Username: username,
+		Action:   "login",
+		Resource: "auth",
+		Detail:   detail,
+		IP:       c.ClientIP(),
+	})
+}
