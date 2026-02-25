@@ -18,7 +18,7 @@
       <!-- DHCP Pools -->
       <el-tab-pane label="地址池" name="pool">
         <el-row justify="end" style="margin-bottom: 12px">
-          <el-button type="primary" @click="showPoolDialog = true" :disabled="!selectedDevice">添加地址池</el-button>
+          <el-button type="primary" @click="openPoolDialog()" :disabled="!selectedDevice">添加地址池</el-button>
         </el-row>
         <el-table :data="pools" stripe border size="small">
           <el-table-column prop="id" label="ID" width="60" />
@@ -33,8 +33,9 @@
               <el-tag :type="row.enabled ? 'success' : 'info'" size="small">{{ row.enabled ? '是' : '否' }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="操作" width="80">
+          <el-table-column label="操作" width="120">
             <template #default="{ row }">
+              <el-button size="small" type="primary" link @click="openPoolDialog(row)">编辑</el-button>
               <el-button size="small" type="danger" link @click="handleDeletePool(row.id)">删除</el-button>
             </template>
           </el-table-column>
@@ -44,7 +45,7 @@
       <!-- Static Leases -->
       <el-tab-pane label="静态绑定" name="lease">
         <el-row justify="end" style="margin-bottom: 12px">
-          <el-button type="primary" @click="showLeaseDialog = true" :disabled="!selectedDevice">添加绑定</el-button>
+          <el-button type="primary" @click="openLeaseDialog()" :disabled="!selectedDevice">添加绑定</el-button>
         </el-row>
         <el-table :data="leases" stripe border size="small">
           <el-table-column prop="id" label="ID" width="60" />
@@ -56,8 +57,9 @@
           </el-table-column>
           <el-table-column prop="ip" label="IP 地址" width="150" />
           <el-table-column prop="created_at" label="创建时间" />
-          <el-table-column label="操作" width="80">
+          <el-table-column label="操作" width="120">
             <template #default="{ row }">
+              <el-button size="small" type="primary" link @click="openLeaseDialog(row)">编辑</el-button>
               <el-button size="small" type="danger" link @click="handleDeleteLease(row.id)">删除</el-button>
             </template>
           </el-table-column>
@@ -65,8 +67,8 @@
       </el-tab-pane>
     </el-tabs>
 
-    <!-- Add Pool dialog -->
-    <el-dialog v-model="showPoolDialog" title="添加 DHCP 地址池" width="480">
+    <!-- Pool dialog (create/edit) -->
+    <el-dialog v-model="showPoolDialog" :title="editingPoolId ? '编辑 DHCP 地址池' : '添加 DHCP 地址池'" width="480">
       <el-form :model="poolForm" label-width="80px">
         <el-form-item label="接口"><el-input v-model="poolForm.interface" placeholder="lan / guest / iot" /></el-form-item>
         <el-form-item label="起始地址"><el-input-number v-model="poolForm.start" :min="1" :max="254" /></el-form-item>
@@ -82,8 +84,8 @@
       </template>
     </el-dialog>
 
-    <!-- Add Lease dialog -->
-    <el-dialog v-model="showLeaseDialog" title="添加静态绑定" width="450">
+    <!-- Lease dialog (create/edit) -->
+    <el-dialog v-model="showLeaseDialog" :title="editingLeaseId ? '编辑静态绑定' : '添加静态绑定'" width="450">
       <el-form :model="leaseForm" label-width="80px">
         <el-form-item label="主机名"><el-input v-model="leaseForm.name" placeholder="printer-1" /></el-form-item>
         <el-form-item label="MAC"><el-input v-model="leaseForm.mac" placeholder="AA:BB:CC:DD:EE:FF" /></el-form-item>
@@ -101,8 +103,8 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  getDevices, getDHCPPools, createDHCPPool, deleteDHCPPool,
-  getStaticLeases, createStaticLease, deleteStaticLease, applyDHCP,
+  getDevices, getDHCPPools, createDHCPPool, updateDHCPPool, deleteDHCPPool,
+  getStaticLeases, createStaticLease, updateStaticLease, deleteStaticLease, applyDHCP,
 } from '../api'
 
 const devices = ref<any[]>([])
@@ -114,12 +116,39 @@ const leases = ref<any[]>([])
 const applying = ref(false)
 const showPoolDialog = ref(false)
 const showLeaseDialog = ref(false)
+const editingPoolId = ref<number | null>(null)
+const editingLeaseId = ref<number | null>(null)
 
 const poolForm = reactive({
   interface: 'lan', start: 100, limit: 150, lease_time: '12h',
   dns: '', gateway: '', enabled: true,
 })
 const leaseForm = reactive({ name: '', mac: '', ip: '' })
+
+const defaultPoolForm = { interface: 'lan', start: 100, limit: 150, lease_time: '12h', dns: '', gateway: '', enabled: true }
+const defaultLeaseForm = { name: '', mac: '', ip: '' }
+
+const openPoolDialog = (row?: any) => {
+  if (row) {
+    editingPoolId.value = row.id
+    Object.assign(poolForm, { interface: row.interface, start: row.start, limit: row.limit, lease_time: row.lease_time, dns: row.dns || '', gateway: row.gateway || '', enabled: row.enabled })
+  } else {
+    editingPoolId.value = null
+    Object.assign(poolForm, defaultPoolForm)
+  }
+  showPoolDialog.value = true
+}
+
+const openLeaseDialog = (row?: any) => {
+  if (row) {
+    editingLeaseId.value = row.id
+    Object.assign(leaseForm, { name: row.name, mac: row.mac, ip: row.ip })
+  } else {
+    editingLeaseId.value = null
+    Object.assign(leaseForm, defaultLeaseForm)
+  }
+  showLeaseDialog.value = true
+}
 
 const fetchAll = async () => {
   if (!selectedDevice.value) { pools.value = []; leases.value = []; return }
@@ -132,21 +161,38 @@ const fetchAll = async () => {
 }
 
 const submitPool = async () => {
-  await createDHCPPool({ ...poolForm, device_id: selectedDevice.value })
-  ElMessage.success('已添加'); showPoolDialog.value = false
-  Object.assign(poolForm, { interface: 'lan', start: 100, limit: 150, lease_time: '12h', dns: '', gateway: '', enabled: true })
+  if (editingPoolId.value) {
+    await updateDHCPPool(editingPoolId.value, { ...poolForm, device_id: selectedDevice.value })
+    ElMessage.success('已更新')
+  } else {
+    await createDHCPPool({ ...poolForm, device_id: selectedDevice.value })
+    ElMessage.success('已添加')
+  }
+  showPoolDialog.value = false
+  Object.assign(poolForm, defaultPoolForm)
+  editingPoolId.value = null
   fetchAll()
 }
+
 const handleDeletePool = async (id: number) => {
   await ElMessageBox.confirm('确认删除此地址池？', '确认')
   await deleteDHCPPool(id); ElMessage.success('已删除'); fetchAll()
 }
+
 const submitLease = async () => {
-  await createStaticLease({ ...leaseForm, device_id: selectedDevice.value })
-  ElMessage.success('已添加'); showLeaseDialog.value = false
-  Object.assign(leaseForm, { name: '', mac: '', ip: '' })
+  if (editingLeaseId.value) {
+    await updateStaticLease(editingLeaseId.value, { ...leaseForm, device_id: selectedDevice.value })
+    ElMessage.success('已更新')
+  } else {
+    await createStaticLease({ ...leaseForm, device_id: selectedDevice.value })
+    ElMessage.success('已添加')
+  }
+  showLeaseDialog.value = false
+  Object.assign(leaseForm, defaultLeaseForm)
+  editingLeaseId.value = null
   fetchAll()
 }
+
 const handleDeleteLease = async (id: number) => {
   await ElMessageBox.confirm('确认删除此绑定？', '确认')
   await deleteStaticLease(id); ElMessage.success('已删除'); fetchAll()

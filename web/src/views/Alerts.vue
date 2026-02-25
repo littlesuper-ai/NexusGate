@@ -83,6 +83,18 @@
       </el-table-column>
     </el-table>
     <el-empty v-if="alerts.length === 0" description="暂无告警" />
+
+    <el-row justify="end" style="margin-top: 16px">
+      <el-pagination
+        v-model:current-page="page"
+        v-model:page-size="pageSize"
+        :page-sizes="[20, 50, 100]"
+        :total="total"
+        layout="total, sizes, prev, pager, next"
+        @size-change="fetchAlerts"
+        @current-change="fetchAlerts"
+      />
+    </el-row>
   </div>
 </template>
 
@@ -95,6 +107,9 @@ import { useWebSocket } from '../composables/useWebSocket'
 const alerts = ref<any[]>([])
 const summary = ref({ total: 0, unresolved: 0, warning: 0, critical: 0 })
 const filter = reactive({ resolved: 'false', severity: '' })
+const page = ref(1)
+const pageSize = ref(50)
+const total = ref(0)
 
 const { on: wsOn } = useWebSocket()
 
@@ -104,11 +119,17 @@ const metricLabel = (m: string) => {
 }
 
 const fetchAlerts = async () => {
-  const params: Record<string, string> = {}
+  const params: Record<string, string | number> = { page: page.value, page_size: pageSize.value }
   if (filter.resolved) params.resolved = filter.resolved
   if (filter.severity) params.severity = filter.severity
-  const [alertRes, sumRes] = await Promise.all([getAlerts(params), getAlertSummary()])
-  alerts.value = alertRes.data
+  const [alertRes, sumRes] = await Promise.all([getAlerts(params as any), getAlertSummary()])
+  if (alertRes.data.data) {
+    alerts.value = alertRes.data.data
+    total.value = alertRes.data.total
+  } else {
+    alerts.value = alertRes.data
+    total.value = alertRes.data.length
+  }
   summary.value = sumRes.data
 }
 

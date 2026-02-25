@@ -220,6 +220,9 @@ func generateMWANUCI(wans []model.WANInterface, policies []model.MWANPolicy, rul
 		if r.Proto != "" && r.Proto != "all" {
 			b.WriteString(fmt.Sprintf("\toption proto '%s'\n", r.Proto))
 		}
+		if r.SrcPort != "" {
+			b.WriteString(fmt.Sprintf("\toption src_port '%s'\n", r.SrcPort))
+		}
 		if r.DestPort != "" {
 			b.WriteString(fmt.Sprintf("\toption dest_port '%s'\n", r.DestPort))
 		}
@@ -251,6 +254,20 @@ func (h *NetworkHandler) CreateDHCPPool(c *gin.Context) {
 	c.JSON(http.StatusCreated, item)
 }
 
+func (h *NetworkHandler) UpdateDHCPPool(c *gin.Context) {
+	var item model.DHCPPool
+	if err := h.DB.First(&item, c.Param("id")).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "dhcp pool not found"})
+		return
+	}
+	if err := c.ShouldBindJSON(&item); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	h.DB.Save(&item)
+	c.JSON(http.StatusOK, item)
+}
+
 func (h *NetworkHandler) DeleteDHCPPool(c *gin.Context) {
 	h.DB.Delete(&model.DHCPPool{}, c.Param("id"))
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
@@ -274,6 +291,20 @@ func (h *NetworkHandler) CreateStaticLease(c *gin.Context) {
 	}
 	h.DB.Create(&item)
 	c.JSON(http.StatusCreated, item)
+}
+
+func (h *NetworkHandler) UpdateStaticLease(c *gin.Context) {
+	var item model.StaticLease
+	if err := h.DB.First(&item, c.Param("id")).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "static lease not found"})
+		return
+	}
+	if err := c.ShouldBindJSON(&item); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	h.DB.Save(&item)
+	c.JSON(http.StatusOK, item)
 }
 
 func (h *NetworkHandler) DeleteStaticLease(c *gin.Context) {

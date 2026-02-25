@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -29,8 +30,24 @@ func (h *AlertHandler) List(c *gin.Context) {
 		query = query.Where("severity = ?", severity)
 	}
 
-	query.Order("created_at DESC").Limit(200).Find(&alerts)
-	c.JSON(http.StatusOK, alerts)
+	// Pagination
+	page := 1
+	pageSize := 50
+	if p := c.Query("page"); p != "" {
+		if v, err := strconv.Atoi(p); err == nil && v > 0 {
+			page = v
+		}
+	}
+	if ps := c.Query("page_size"); ps != "" {
+		if v, err := strconv.Atoi(ps); err == nil && v > 0 && v <= 200 {
+			pageSize = v
+		}
+	}
+
+	var total int64
+	query.Count(&total)
+	query.Order("created_at DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&alerts)
+	c.JSON(http.StatusOK, gin.H{"data": alerts, "total": total, "page": page, "page_size": pageSize})
 }
 
 func (h *AlertHandler) Resolve(c *gin.Context) {

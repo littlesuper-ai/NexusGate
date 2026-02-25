@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -113,6 +114,50 @@ func (h *AuthHandler) DeleteUser(c *gin.Context) {
 
 func (h *AuthHandler) AuditLogs(c *gin.Context) {
 	var logs []model.AuditLog
-	h.DB.Order("created_at DESC").Limit(200).Find(&logs)
-	c.JSON(http.StatusOK, logs)
+	query := h.DB.Model(&model.AuditLog{})
+
+	if action := c.Query("action"); action != "" {
+		query = query.Where("action = ?", action)
+	}
+	if resource := c.Query("resource"); resource != "" {
+		query = query.Where("resource = ?", resource)
+	}
+	if username := c.Query("username"); username != "" {
+		query = query.Where("username LIKE ?", "%"+username+"%")
+	}
+	if from := c.Query("from"); from != "" {
+		if t, err := time.Parse(time.RFC3339, from); err == nil {
+			query = query.Where("created_at >= ?", t)
+		}
+	}
+	if to := c.Query("to"); to != "" {
+		if t, err := time.Parse(time.RFC3339, to); err == nil {
+			query = query.Where("created_at <= ?", t)
+		}
+	}
+
+	// Pagination
+	page := 1
+	pageSize := 50
+	if p := c.Query("page"); p != "" {
+		if v, err := strconv.Atoi(p); err == nil && v > 0 {
+			page = v
+		}
+	}
+	if ps := c.Query("page_size"); ps != "" {
+		if v, err := strconv.Atoi(ps); err == nil && v > 0 && v <= 200 {
+			pageSize = v
+		}
+	}
+
+	var total int64
+	query.Count(&total)
+	query.Order("created_at DESC").Offset((page - 1) * pageSize).Limit(pageSize).Find(&logs)
+
+	c.JSON(http.StatusOK, gin.H{
+		"data":      logs,
+		"total":     total,
+		"page":      page,
+		"page_size": pageSize,
+	})
 }

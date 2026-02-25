@@ -1,26 +1,33 @@
 <template>
   <div>
-    <el-row :gutter="20" class="stat-cards">
-      <el-col :span="6">
+    <el-row :gutter="16" class="stat-cards">
+      <el-col :span="5">
         <el-card shadow="hover">
           <el-statistic title="设备总数" :value="summary.total_devices" />
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :span="5">
         <el-card shadow="hover">
           <el-statistic title="在线设备" :value="summary.online_devices">
             <template #suffix><span style="color: #67c23a; font-size: 14px">台</span></template>
           </el-statistic>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :span="5">
         <el-card shadow="hover">
           <el-statistic title="离线设备" :value="summary.offline_devices">
             <template #suffix><span style="color: #f56c6c; font-size: 14px">台</span></template>
           </el-statistic>
         </el-card>
       </el-col>
-      <el-col :span="6">
+      <el-col :span="5">
+        <el-card shadow="hover">
+          <el-statistic title="未知设备" :value="summary.unknown_devices">
+            <template #suffix><span style="color: #909399; font-size: 14px">台</span></template>
+          </el-statistic>
+        </el-card>
+      </el-col>
+      <el-col :span="4">
         <el-card shadow="hover">
           <el-statistic title="配置模板" :value="templateCount" />
         </el-card>
@@ -87,7 +94,7 @@ import { ref, onMounted } from 'vue'
 import { getDashboardSummary, getDevices, getTemplates, getAuditLogs } from '../api'
 import { useWebSocket } from '../composables/useWebSocket'
 
-const summary = ref({ total_devices: 0, online_devices: 0, offline_devices: 0 })
+const summary = ref({ total_devices: 0, online_devices: 0, offline_devices: 0, unknown_devices: 0 })
 const devices = ref<any[]>([])
 const templateCount = ref(0)
 const auditLogs = ref<any[]>([])
@@ -119,7 +126,7 @@ const logType = (action: string) => {
 
 onMounted(async () => {
   const [s, d, t, a] = await Promise.all([
-    getDashboardSummary().catch(() => ({ data: { total_devices: 0, online_devices: 0, offline_devices: 0 } })),
+    getDashboardSummary().catch(() => ({ data: { total_devices: 0, online_devices: 0, offline_devices: 0, unknown_devices: 0 } })),
     getDevices().catch(() => ({ data: [] })),
     getTemplates().catch(() => ({ data: [] })),
     getAuditLogs().catch(() => ({ data: [] })),

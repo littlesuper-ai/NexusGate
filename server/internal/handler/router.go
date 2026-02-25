@@ -122,9 +122,11 @@ func SetupRouter(db *gorm.DB, mqttClient mqtt.Client, cfg *config.Config, wsHub 
 		// DHCP
 		api.GET("/network/dhcp/pools", networkHandler.ListDHCPPools)
 		api.POST("/network/dhcp/pools", networkHandler.CreateDHCPPool)
+		api.PUT("/network/dhcp/pools/:id", networkHandler.UpdateDHCPPool)
 		api.DELETE("/network/dhcp/pools/:id", networkHandler.DeleteDHCPPool)
 		api.GET("/network/dhcp/leases", networkHandler.ListStaticLeases)
 		api.POST("/network/dhcp/leases", networkHandler.CreateStaticLease)
+		api.PUT("/network/dhcp/leases/:id", networkHandler.UpdateStaticLease)
 		api.DELETE("/network/dhcp/leases/:id", networkHandler.DeleteStaticLease)
 		api.POST("/network/dhcp/apply/:device_id", networkHandler.ApplyDHCP)
 

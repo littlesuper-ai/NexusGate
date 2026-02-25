@@ -61,13 +61,36 @@ func (h *DeviceHandler) Register(c *gin.Context) {
 
 func (h *DeviceHandler) List(c *gin.Context) {
 	var devices []model.Device
-	query := h.DB
+	query := h.DB.Model(&model.Device{})
 
 	if group := c.Query("group"); group != "" {
 		query = query.Where("\"group\" = ?", group)
 	}
 	if status := c.Query("status"); status != "" {
 		query = query.Where("status = ?", status)
+	}
+	if search := c.Query("search"); search != "" {
+		like := "%" + search + "%"
+		query = query.Where("name LIKE ? OR mac LIKE ? OR ip_address LIKE ?", like, like, like)
+	}
+
+	// If page param is provided, return paginated result
+	if p := c.Query("page"); p != "" {
+		page := 1
+		pageSize := 50
+		if v, err := fmt.Sscanf(p, "%d", &page); err != nil || v == 0 || page < 1 {
+			page = 1
+		}
+		if ps := c.Query("page_size"); ps != "" {
+			if _, err := fmt.Sscanf(ps, "%d", &pageSize); err != nil || pageSize < 1 || pageSize > 200 {
+				pageSize = 50
+			}
+		}
+		var total int64
+		query.Count(&total)
+		query.Order("id").Offset((page - 1) * pageSize).Limit(pageSize).Find(&devices)
+		c.JSON(http.StatusOK, gin.H{"data": devices, "total": total, "page": page, "page_size": pageSize})
+		return
 	}
 
 	if err := query.Find(&devices).Error; err != nil {

@@ -13,7 +13,8 @@
       </el-col>
     </el-row>
 
-    <el-table :data="filteredDevices" v-loading="loading" stripe>
+    <el-table :data="filteredDevices" v-loading="loading" stripe @selection-change="handleSelectionChange">
+      <el-table-column type="selection" width="45" />
       <el-table-column prop="name" label="设备名称" />
       <el-table-column prop="mac" label="MAC 地址" width="180" />
       <el-table-column prop="ip_address" label="IP 地址" width="150" />
@@ -41,6 +42,29 @@
         </template>
       </el-table-column>
     </el-table>
+
+    <!-- Bulk actions & pagination -->
+    <el-row justify="space-between" align="middle" style="margin-top: 16px">
+      <el-col :span="12">
+        <el-button type="warning" size="small" :disabled="selectedRows.length === 0" @click="handleBulkReboot">
+          批量重启 ({{ selectedRows.length }})
+        </el-button>
+        <el-button type="danger" size="small" :disabled="selectedRows.length === 0" @click="handleBulkDelete">
+          批量删除 ({{ selectedRows.length }})
+        </el-button>
+      </el-col>
+      <el-col :span="12" style="text-align: right">
+        <el-pagination
+          v-model:current-page="page"
+          v-model:page-size="pageSize"
+          :page-sizes="[20, 50, 100]"
+          :total="total"
+          layout="total, sizes, prev, pager, next"
+          @size-change="fetchDevices"
+          @current-change="fetchDevices"
+        />
+      </el-col>
+    </el-row>
   </div>
 </template>
 
@@ -66,21 +90,36 @@ const devices = ref<Device[]>([])
 const loading = ref(false)
 const search = ref('')
 const statusFilter = ref('')
+const selectedRows = ref<Device[]>([])
+const page = ref(1)
+const pageSize = ref(50)
+const total = ref(0)
 
 const filteredDevices = computed(() => {
   const q = search.value.toLowerCase()
+  if (!q) return devices.value
   return devices.value.filter(
     (d) => d.name.toLowerCase().includes(q) || d.mac.toLowerCase().includes(q) || d.ip_address?.includes(q)
   )
 })
 
+const handleSelectionChange = (rows: Device[]) => {
+  selectedRows.value = rows
+}
+
 const fetchDevices = async () => {
   loading.value = true
   try {
-    const params: Record<string, string> = {}
+    const params: Record<string, string | number> = { page: page.value, page_size: pageSize.value }
     if (statusFilter.value) params.status = statusFilter.value
-    const { data } = await getDevices(params)
-    devices.value = data
+    const { data } = await getDevices(params as any)
+    if (data.data) {
+      devices.value = data.data
+      total.value = data.total
+    } else {
+      devices.value = data
+      total.value = data.length
+    }
   } catch {
     ElMessage.error('获取设备列表失败')
   } finally {
@@ -97,6 +136,23 @@ const handleReboot = async (device: Device) => {
 const handleDelete = async (device: Device) => {
   await ElMessageBox.confirm(`确认删除设备 "${device.name}"？此操作不可恢复`, '删除确认', { type: 'warning' })
   await deleteDevice(device.id)
+  ElMessage.success('已删除')
+  fetchDevices()
+}
+
+const handleBulkReboot = async () => {
+  await ElMessageBox.confirm(`确认批量重启 ${selectedRows.value.length} 台设备？`, '批量重启', { type: 'warning' })
+  for (const d of selectedRows.value) {
+    await rebootDevice(d.id).catch(() => {})
+  }
+  ElMessage.success(`已发送重启指令到 ${selectedRows.value.length} 台设备`)
+}
+
+const handleBulkDelete = async () => {
+  await ElMessageBox.confirm(`确认批量删除 ${selectedRows.value.length} 台设备？此操作不可恢复`, '批量删除', { type: 'warning' })
+  for (const d of selectedRows.value) {
+    await deleteDevice(d.id).catch(() => {})
+  }
   ElMessage.success('已删除')
   fetchDevices()
 }

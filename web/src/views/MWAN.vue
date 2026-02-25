@@ -18,7 +18,7 @@
       <!-- WAN Interfaces -->
       <el-tab-pane label="WAN 接口" name="wan">
         <el-row justify="end" style="margin-bottom: 12px">
-          <el-button type="primary" @click="showWanDialog = true" :disabled="!selectedDevice">添加 WAN 接口</el-button>
+          <el-button type="primary" @click="openWanDialog()" :disabled="!selectedDevice">添加 WAN 接口</el-button>
         </el-row>
         <el-table :data="wans" stripe border size="small">
           <el-table-column prop="id" label="ID" width="60" />
@@ -35,8 +35,9 @@
           <el-table-column prop="interval" label="间隔(s)" width="80" />
           <el-table-column prop="down" label="Down" width="60" />
           <el-table-column prop="up" label="Up" width="60" />
-          <el-table-column label="操作" width="80">
+          <el-table-column label="操作" width="120">
             <template #default="{ row }">
+              <el-button size="small" type="primary" link @click="openWanDialog(row)">编辑</el-button>
               <el-button size="small" type="danger" link @click="handleDeleteWan(row.id)">删除</el-button>
             </template>
           </el-table-column>
@@ -46,15 +47,16 @@
       <!-- Policies -->
       <el-tab-pane label="负载策略" name="policy">
         <el-row justify="end" style="margin-bottom: 12px">
-          <el-button type="primary" @click="showPolicyDialog = true" :disabled="!selectedDevice">添加策略</el-button>
+          <el-button type="primary" @click="openPolicyDialog()" :disabled="!selectedDevice">添加策略</el-button>
         </el-row>
         <el-table :data="policies" stripe border size="small">
           <el-table-column prop="id" label="ID" width="60" />
           <el-table-column prop="name" label="策略名称" width="150" />
           <el-table-column prop="members" label="成员配置" />
           <el-table-column prop="last_resort" label="兜底策略" width="120" />
-          <el-table-column label="操作" width="80">
+          <el-table-column label="操作" width="120">
             <template #default="{ row }">
+              <el-button size="small" type="primary" link @click="openPolicyDialog(row)">编辑</el-button>
               <el-button size="small" type="danger" link @click="handleDeletePolicy(row.id)">删除</el-button>
             </template>
           </el-table-column>
@@ -64,7 +66,7 @@
       <!-- Rules -->
       <el-tab-pane label="路由规则" name="rule">
         <el-row justify="end" style="margin-bottom: 12px">
-          <el-button type="primary" @click="showRuleDialog = true" :disabled="!selectedDevice">添加规则</el-button>
+          <el-button type="primary" @click="openRuleDialog()" :disabled="!selectedDevice">添加规则</el-button>
         </el-row>
         <el-table :data="rules" stripe border size="small">
           <el-table-column prop="id" label="ID" width="60" />
@@ -80,8 +82,9 @@
             </template>
           </el-table-column>
           <el-table-column prop="position" label="优先级" width="80" />
-          <el-table-column label="操作" width="80">
+          <el-table-column label="操作" width="120">
             <template #default="{ row }">
+              <el-button size="small" type="primary" link @click="openRuleDialog(row)">编辑</el-button>
               <el-button size="small" type="danger" link @click="handleDeleteRule(row.id)">删除</el-button>
             </template>
           </el-table-column>
@@ -89,8 +92,8 @@
       </el-tab-pane>
     </el-tabs>
 
-    <!-- Add WAN dialog -->
-    <el-dialog v-model="showWanDialog" title="添加 WAN 接口" width="500">
+    <!-- WAN dialog -->
+    <el-dialog v-model="showWanDialog" :title="editingWanId ? '编辑 WAN 接口' : '添加 WAN 接口'" width="500">
       <el-form :model="wanForm" label-width="90px">
         <el-form-item label="名称"><el-input v-model="wanForm.name" placeholder="wan1" /></el-form-item>
         <el-form-item label="接口"><el-input v-model="wanForm.interface" placeholder="eth1 / pppoe-wan" /></el-form-item>
@@ -108,8 +111,8 @@
       </template>
     </el-dialog>
 
-    <!-- Add Policy dialog -->
-    <el-dialog v-model="showPolicyDialog" title="添加负载策略" width="500">
+    <!-- Policy dialog -->
+    <el-dialog v-model="showPolicyDialog" :title="editingPolicyId ? '编辑负载策略' : '添加负载策略'" width="500">
       <el-form :model="policyForm" label-width="90px">
         <el-form-item label="策略名称"><el-input v-model="policyForm.name" placeholder="balanced" /></el-form-item>
         <el-form-item label="成员">
@@ -128,8 +131,8 @@
       </template>
     </el-dialog>
 
-    <!-- Add Rule dialog -->
-    <el-dialog v-model="showRuleDialog" title="添加路由规则" width="500">
+    <!-- Rule dialog -->
+    <el-dialog v-model="showRuleDialog" :title="editingRuleId ? '编辑路由规则' : '添加路由规则'" width="500">
       <el-form :model="ruleForm" label-width="90px">
         <el-form-item label="规则名称"><el-input v-model="ruleForm.name" placeholder="video_traffic" /></el-form-item>
         <el-form-item label="源 IP"><el-input v-model="ruleForm.src_ip" placeholder="0.0.0.0/0" /></el-form-item>
@@ -164,9 +167,9 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
-  getDevices, getWANInterfaces, createWANInterface, deleteWANInterface,
-  getMWANPolicies, createMWANPolicy, deleteMWANPolicy,
-  getMWANRules, createMWANRule, deleteMWANRule, applyMWAN,
+  getDevices, getWANInterfaces, createWANInterface, updateWANInterface, deleteWANInterface,
+  getMWANPolicies, createMWANPolicy, updateMWANPolicy, deleteMWANPolicy,
+  getMWANRules, createMWANRule, updateMWANRule, deleteMWANRule, applyMWAN,
 } from '../api'
 
 const devices = ref<any[]>([])
@@ -180,16 +183,54 @@ const rules = ref<any[]>([])
 const showWanDialog = ref(false)
 const showPolicyDialog = ref(false)
 const showRuleDialog = ref(false)
+const editingWanId = ref<number | null>(null)
+const editingPolicyId = ref<number | null>(null)
+const editingRuleId = ref<number | null>(null)
 
-const wanForm = reactive({
+const defaultWan = {
   name: '', interface: '', enabled: true, weight: 1,
   track_ips: '8.8.8.8,114.114.114.114', reliability: 2, interval: 5, down: 3, up: 3,
-})
-const policyForm = reactive({ name: '', members: '', last_resort: 'default' })
-const ruleForm = reactive({
+}
+const defaultPolicy = { name: '', members: '', last_resort: 'default' }
+const defaultRule = {
   name: '', src_ip: '', dest_ip: '', proto: 'all',
   src_port: '', dest_port: '', policy: '', enabled: true, position: 0,
-})
+}
+
+const wanForm = reactive({ ...defaultWan })
+const policyForm = reactive({ ...defaultPolicy })
+const ruleForm = reactive({ ...defaultRule })
+
+const openWanDialog = (row?: any) => {
+  if (row) {
+    editingWanId.value = row.id
+    Object.assign(wanForm, { name: row.name, interface: row.interface, enabled: row.enabled, weight: row.weight, track_ips: row.track_ips || '', reliability: row.reliability, interval: row.interval, down: row.down, up: row.up })
+  } else {
+    editingWanId.value = null
+    Object.assign(wanForm, defaultWan)
+  }
+  showWanDialog.value = true
+}
+const openPolicyDialog = (row?: any) => {
+  if (row) {
+    editingPolicyId.value = row.id
+    Object.assign(policyForm, { name: row.name, members: row.members || '', last_resort: row.last_resort })
+  } else {
+    editingPolicyId.value = null
+    Object.assign(policyForm, defaultPolicy)
+  }
+  showPolicyDialog.value = true
+}
+const openRuleDialog = (row?: any) => {
+  if (row) {
+    editingRuleId.value = row.id
+    Object.assign(ruleForm, { name: row.name, src_ip: row.src_ip || '', dest_ip: row.dest_ip || '', proto: row.proto || 'all', src_port: row.src_port || '', dest_port: row.dest_port || '', policy: row.policy, enabled: row.enabled, position: row.position })
+  } else {
+    editingRuleId.value = null
+    Object.assign(ruleForm, defaultRule)
+  }
+  showRuleDialog.value = true
+}
 
 const fetchAll = async () => {
   if (!selectedDevice.value) { wans.value = []; policies.value = []; rules.value = []; return }
@@ -204,30 +245,45 @@ const fetchAll = async () => {
 }
 
 const submitWan = async () => {
-  await createWANInterface({ ...wanForm, device_id: selectedDevice.value })
-  ElMessage.success('已添加'); showWanDialog.value = false
-  Object.assign(wanForm, { name: '', interface: '', enabled: true, weight: 1, track_ips: '8.8.8.8,114.114.114.114', reliability: 2, interval: 5, down: 3, up: 3 })
-  fetchAll()
+  if (editingWanId.value) {
+    await updateWANInterface(editingWanId.value, { ...wanForm, device_id: selectedDevice.value })
+    ElMessage.success('已更新')
+  } else {
+    await createWANInterface({ ...wanForm, device_id: selectedDevice.value })
+    ElMessage.success('已添加')
+  }
+  showWanDialog.value = false; editingWanId.value = null
+  Object.assign(wanForm, defaultWan); fetchAll()
 }
 const handleDeleteWan = async (id: number) => {
   await ElMessageBox.confirm('确认删除此 WAN 接口？', '确认')
   await deleteWANInterface(id); ElMessage.success('已删除'); fetchAll()
 }
 const submitPolicy = async () => {
-  await createMWANPolicy({ ...policyForm, device_id: selectedDevice.value })
-  ElMessage.success('已添加'); showPolicyDialog.value = false
-  Object.assign(policyForm, { name: '', members: '', last_resort: 'default' })
-  fetchAll()
+  if (editingPolicyId.value) {
+    await updateMWANPolicy(editingPolicyId.value, { ...policyForm, device_id: selectedDevice.value })
+    ElMessage.success('已更新')
+  } else {
+    await createMWANPolicy({ ...policyForm, device_id: selectedDevice.value })
+    ElMessage.success('已添加')
+  }
+  showPolicyDialog.value = false; editingPolicyId.value = null
+  Object.assign(policyForm, defaultPolicy); fetchAll()
 }
 const handleDeletePolicy = async (id: number) => {
   await ElMessageBox.confirm('确认删除此策略？', '确认')
   await deleteMWANPolicy(id); ElMessage.success('已删除'); fetchAll()
 }
 const submitRule = async () => {
-  await createMWANRule({ ...ruleForm, device_id: selectedDevice.value })
-  ElMessage.success('已添加'); showRuleDialog.value = false
-  Object.assign(ruleForm, { name: '', src_ip: '', dest_ip: '', proto: 'all', src_port: '', dest_port: '', policy: '', enabled: true, position: 0 })
-  fetchAll()
+  if (editingRuleId.value) {
+    await updateMWANRule(editingRuleId.value, { ...ruleForm, device_id: selectedDevice.value })
+    ElMessage.success('已更新')
+  } else {
+    await createMWANRule({ ...ruleForm, device_id: selectedDevice.value })
+    ElMessage.success('已添加')
+  }
+  showRuleDialog.value = false; editingRuleId.value = null
+  Object.assign(ruleForm, defaultRule); fetchAll()
 }
 const handleDeleteRule = async (id: number) => {
   await ElMessageBox.confirm('确认删除此规则？', '确认')

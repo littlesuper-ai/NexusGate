@@ -77,7 +77,7 @@ export const createUser = (data: { username: string; password: string; role: str
 export const deleteUser = (id: number) => api.delete(`/users/${id}`)
 
 // Audit
-export const getAuditLogs = () => api.get('/audit-logs')
+export const getAuditLogs = (params?: Record<string, string | number>) => api.get('/audit-logs', { params })
 
 // Firewall
 export const getFirewallZones = (deviceId?: number) =>
@@ -123,14 +123,17 @@ export const getUpgradeHistory = (deviceId?: number) =>
 export const getWANInterfaces = (deviceId?: number) =>
   api.get('/network/wan', { params: deviceId ? { device_id: deviceId } : {} })
 export const createWANInterface = (data: any) => api.post('/network/wan', data)
+export const updateWANInterface = (id: number, data: any) => api.put(`/network/wan/${id}`, data)
 export const deleteWANInterface = (id: number) => api.delete(`/network/wan/${id}`)
 export const getMWANPolicies = (deviceId?: number) =>
   api.get('/network/mwan/policies', { params: deviceId ? { device_id: deviceId } : {} })
 export const createMWANPolicy = (data: any) => api.post('/network/mwan/policies', data)
+export const updateMWANPolicy = (id: number, data: any) => api.put(`/network/mwan/policies/${id}`, data)
 export const deleteMWANPolicy = (id: number) => api.delete(`/network/mwan/policies/${id}`)
 export const getMWANRules = (deviceId?: number) =>
   api.get('/network/mwan/rules', { params: deviceId ? { device_id: deviceId } : {} })
 export const createMWANRule = (data: any) => api.post('/network/mwan/rules', data)
+export const updateMWANRule = (id: number, data: any) => api.put(`/network/mwan/rules/${id}`, data)
 export const deleteMWANRule = (id: number) => api.delete(`/network/mwan/rules/${id}`)
 export const applyMWAN = (deviceId: number) => api.post(`/network/mwan/apply/${deviceId}`)
 
@@ -138,10 +141,12 @@ export const applyMWAN = (deviceId: number) => api.post(`/network/mwan/apply/${d
 export const getDHCPPools = (deviceId?: number) =>
   api.get('/network/dhcp/pools', { params: deviceId ? { device_id: deviceId } : {} })
 export const createDHCPPool = (data: any) => api.post('/network/dhcp/pools', data)
+export const updateDHCPPool = (id: number, data: any) => api.put(`/network/dhcp/pools/${id}`, data)
 export const deleteDHCPPool = (id: number) => api.delete(`/network/dhcp/pools/${id}`)
 export const getStaticLeases = (deviceId?: number) =>
   api.get('/network/dhcp/leases', { params: deviceId ? { device_id: deviceId } : {} })
 export const createStaticLease = (data: any) => api.post('/network/dhcp/leases', data)
+export const updateStaticLease = (id: number, data: any) => api.put(`/network/dhcp/leases/${id}`, data)
 export const deleteStaticLease = (id: number) => api.delete(`/network/dhcp/leases/${id}`)
 export const applyDHCP = (deviceId: number) => api.post(`/network/dhcp/apply/${deviceId}`)
 
