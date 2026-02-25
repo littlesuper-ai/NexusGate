@@ -14,7 +14,7 @@
     </el-row>
 
     <el-table :data="filteredDevices" v-loading="loading" stripe @selection-change="handleSelectionChange">
-      <el-table-column type="selection" width="45" />
+      <el-table-column v-if="canWrite" type="selection" width="45" />
       <el-table-column prop="name" label="设备名称" />
       <el-table-column prop="mac" label="MAC 地址" width="180" />
       <el-table-column prop="ip_address" label="IP 地址" width="150" />
@@ -34,11 +34,11 @@
       <el-table-column label="内存" width="80">
         <template #default="{ row }">{{ row.mem_usage?.toFixed(1) }}%</template>
       </el-table-column>
-      <el-table-column label="操作" width="200" fixed="right">
+      <el-table-column label="操作" :width="canWrite ? 200 : 80" fixed="right">
         <template #default="{ row }">
           <el-button size="small" @click="$router.push(`/devices/${row.id}`)">详情</el-button>
-          <el-button size="small" type="warning" @click="handleReboot(row)">重启</el-button>
-          <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
+          <el-button v-if="canWrite" size="small" type="warning" @click="handleReboot(row)">重启</el-button>
+          <el-button v-if="canWrite" size="small" type="danger" @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
@@ -46,12 +46,14 @@
     <!-- Bulk actions & pagination -->
     <el-row justify="space-between" align="middle" style="margin-top: 16px">
       <el-col :span="12">
-        <el-button type="warning" size="small" :disabled="selectedRows.length === 0" @click="handleBulkReboot">
-          批量重启 ({{ selectedRows.length }})
-        </el-button>
-        <el-button type="danger" size="small" :disabled="selectedRows.length === 0" @click="handleBulkDelete">
-          批量删除 ({{ selectedRows.length }})
-        </el-button>
+        <template v-if="canWrite">
+          <el-button type="warning" size="small" :disabled="selectedRows.length === 0" @click="handleBulkReboot">
+            批量重启 ({{ selectedRows.length }})
+          </el-button>
+          <el-button type="danger" size="small" :disabled="selectedRows.length === 0" @click="handleBulkDelete">
+            批量删除 ({{ selectedRows.length }})
+          </el-button>
+        </template>
       </el-col>
       <el-col :span="12" style="text-align: right">
         <el-pagination
@@ -71,7 +73,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getDevices, rebootDevice, deleteDevice } from '../api'
+import { getDevices, rebootDevice, deleteDevice, bulkDeleteDevices, bulkRebootDevices } from '../api'
 
 interface Device {
   id: number
@@ -94,6 +96,10 @@ const selectedRows = ref<Device[]>([])
 const page = ref(1)
 const pageSize = ref(50)
 const total = ref(0)
+const canWrite = computed(() => {
+  const role = localStorage.getItem('role')
+  return role === 'admin' || role === 'operator'
+})
 
 const filteredDevices = computed(() => {
   const q = search.value.toLowerCase()
@@ -142,17 +148,15 @@ const handleDelete = async (device: Device) => {
 
 const handleBulkReboot = async () => {
   await ElMessageBox.confirm(`确认批量重启 ${selectedRows.value.length} 台设备？`, '批量重启', { type: 'warning' })
-  for (const d of selectedRows.value) {
-    await rebootDevice(d.id).catch(() => {})
-  }
+  const ids = selectedRows.value.map((d) => d.id)
+  await bulkRebootDevices(ids)
   ElMessage.success(`已发送重启指令到 ${selectedRows.value.length} 台设备`)
 }
 
 const handleBulkDelete = async () => {
   await ElMessageBox.confirm(`确认批量删除 ${selectedRows.value.length} 台设备？此操作不可恢复`, '批量删除', { type: 'warning' })
-  for (const d of selectedRows.value) {
-    await deleteDevice(d.id).catch(() => {})
-  }
+  const ids = selectedRows.value.map((d) => d.id)
+  await bulkDeleteDevices(ids)
   ElMessage.success('已删除')
   fetchDevices()
 }

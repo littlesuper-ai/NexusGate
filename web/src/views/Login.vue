@@ -38,6 +38,7 @@ const handleLogin = async () => {
     const { data } = await login(form.username, form.password)
     localStorage.setItem('token', data.token)
     localStorage.setItem('username', data.user.username)
+    localStorage.setItem('role', data.user.role)
     router.push('/dashboard')
   } catch {
     ElMessage.error('登录失败，请检查用户名和密码')

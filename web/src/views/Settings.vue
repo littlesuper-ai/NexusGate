@@ -59,6 +59,27 @@
           <el-form-item label="Webhook URL" v-if="form.alert_notify_method === 'webhook'">
             <el-input v-model="form.alert_webhook_url" placeholder="https://hooks.example.com/..." />
           </el-form-item>
+          <template v-if="form.alert_notify_method === 'email'">
+            <el-divider content-position="left">SMTP 邮件配置</el-divider>
+            <el-form-item label="SMTP 服务器">
+              <el-input v-model="form.smtp_host" placeholder="smtp.example.com" />
+            </el-form-item>
+            <el-form-item label="SMTP 端口">
+              <el-input v-model="form.smtp_port" placeholder="25" />
+            </el-form-item>
+            <el-form-item label="发件人地址">
+              <el-input v-model="form.smtp_from" placeholder="alerts@example.com" />
+            </el-form-item>
+            <el-form-item label="收件人地址">
+              <el-input v-model="form.smtp_to" placeholder="admin@example.com" />
+            </el-form-item>
+            <el-form-item label="SMTP 用户名">
+              <el-input v-model="form.smtp_user" placeholder="留空则不认证" />
+            </el-form-item>
+            <el-form-item label="SMTP 密码">
+              <el-input v-model="form.smtp_pass" type="password" show-password placeholder="留空则不认证" />
+            </el-form-item>
+          </template>
         </el-form>
       </el-tab-pane>
 
@@ -80,19 +101,23 @@
 
     <el-divider />
     <el-row justify="end">
-      <el-button type="primary" @click="saveSettings" :loading="saving">保存设置</el-button>
+      <el-button type="primary" @click="saveSettings" :loading="saving" :disabled="!canWrite">保存设置</el-button>
     </el-row>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getSettings, batchUpsertSettings } from '../api'
 
 const loading = ref(false)
 const saving = ref(false)
 const activeTab = ref('general')
+const canWrite = computed(() => {
+  const role = localStorage.getItem('role')
+  return role === 'admin' || role === 'operator'
+})
 
 const form = reactive<Record<string, any>>({
   // General
@@ -111,6 +136,13 @@ const form = reactive<Record<string, any>>({
   alert_conntrack_threshold: 50000,
   alert_notify_method: 'log',
   alert_webhook_url: '',
+  // SMTP
+  smtp_host: '',
+  smtp_port: '25',
+  smtp_from: '',
+  smtp_to: '',
+  smtp_user: '',
+  smtp_pass: '',
   // Firmware
   firmware_store_path: './firmware_store',
   firmware_max_size_mb: 100,
@@ -120,7 +152,7 @@ const form = reactive<Record<string, any>>({
 const categoryMap: Record<string, string[]> = {
   general: ['system_name', 'offline_threshold', 'metrics_retention_days', 'page_size'],
   mqtt: ['mqtt_broker', 'mqtt_client_id', 'mqtt_topic_prefix', 'mqtt_keepalive'],
-  alert: ['alert_cpu_threshold', 'alert_mem_threshold', 'alert_conntrack_threshold', 'alert_notify_method', 'alert_webhook_url'],
+  alert: ['alert_cpu_threshold', 'alert_mem_threshold', 'alert_conntrack_threshold', 'alert_notify_method', 'alert_webhook_url', 'smtp_host', 'smtp_port', 'smtp_from', 'smtp_to', 'smtp_user', 'smtp_pass'],
   firmware: ['firmware_store_path', 'firmware_max_size_mb', 'firmware_auto_upgrade'],
 }
 
