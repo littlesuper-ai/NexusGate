@@ -3,8 +3,10 @@ package jobs
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
+	"net/smtp"
 	"strconv"
 	"time"
 
@@ -113,6 +115,8 @@ func dispatchNotification(db *gorm.DB, alert model.Alert) {
 			return
 		}
 		go sendWebhook(urlSetting.Value, alert)
+	case "email":
+		go sendEmailAlert(db, alert)
 	case "log":
 		log.Printf("ALERT NOTIFICATION [%s]: device=%s metric=%s value=%.1f threshold=%.1f",
 			alert.Severity, alert.DeviceName, alert.Metric, alert.Value, alert.Threshold)
@@ -139,4 +143,52 @@ func sendWebhook(url string, alert model.Alert) {
 	if resp.StatusCode >= 300 {
 		log.Printf("webhook returned status %d", resp.StatusCode)
 	}
+}
+
+// sendEmailAlert sends an alert email using SMTP settings from system_settings.
+// Required settings: smtp_host, smtp_port, smtp_from, smtp_to
+// Optional settings: smtp_user, smtp_pass
+func sendEmailAlert(db *gorm.DB, alert model.Alert) {
+	getSetting := func(key string) string {
+		var s model.SystemSetting
+		if err := db.Where("\"key\" = ?", key).First(&s).Error; err == nil {
+			return s.Value
+		}
+		return ""
+	}
+
+	host := getSetting("smtp_host")
+	port := getSetting("smtp_port")
+	from := getSetting("smtp_from")
+	to := getSetting("smtp_to")
+
+	if host == "" || from == "" || to == "" {
+		log.Println("email alert: SMTP settings incomplete (need smtp_host, smtp_from, smtp_to)")
+		return
+	}
+	if port == "" {
+		port = "25"
+	}
+
+	subject := fmt.Sprintf("[NexusGate %s] %s alert on %s", alert.Severity, alert.Metric, alert.DeviceName)
+	body := fmt.Sprintf("Device: %s (ID: %d)\nMetric: %s\nValue: %.1f\nThreshold: %.1f\nSeverity: %s\nTime: %s",
+		alert.DeviceName, alert.DeviceID, alert.Metric, alert.Value, alert.Threshold, alert.Severity,
+		alert.CreatedAt.Format(time.RFC3339))
+
+	msg := fmt.Sprintf("From: %s\r\nTo: %s\r\nSubject: %s\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n%s",
+		from, to, subject, body)
+
+	addr := fmt.Sprintf("%s:%s", host, port)
+	var auth smtp.Auth
+	user := getSetting("smtp_user")
+	pass := getSetting("smtp_pass")
+	if user != "" && pass != "" {
+		auth = smtp.PlainAuth("", user, pass, host)
+	}
+
+	if err := smtp.SendMail(addr, auth, from, []string{to}, []byte(msg)); err != nil {
+		log.Printf("email alert send failed: %v", err)
+		return
+	}
+	log.Printf("email alert sent to %s for device %s", to, alert.DeviceName)
 }

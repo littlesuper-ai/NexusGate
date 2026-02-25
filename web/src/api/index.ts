@@ -74,6 +74,8 @@ export const getDashboardSummary = () =>
 export const getUsers = () => api.get('/users')
 export const createUser = (data: { username: string; password: string; role: string; email?: string }) =>
   api.post('/users', data)
+export const updateUser = (id: number, data: { role?: string; email?: string; password?: string }) =>
+  api.put(`/users/${id}`, data)
 export const deleteUser = (id: number) => api.delete(`/users/${id}`)
 
 // Audit

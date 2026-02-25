@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -51,6 +52,7 @@ func (h *SettingHandler) Upsert(c *gin.Context) {
 		Columns:   []clause.Column{{Name: "key"}},
 		DoUpdates: clause.AssignmentColumns([]string{"value", "category", "updated_at"}),
 	}).Create(&item)
+	writeAudit(h.DB, c, "upsert", "setting", fmt.Sprintf("set setting %s=%s", req.Key, req.Value))
 	c.JSON(http.StatusOK, item)
 }
 
@@ -74,10 +76,12 @@ func (h *SettingHandler) BatchUpsert(c *gin.Context) {
 			DoUpdates: clause.AssignmentColumns([]string{"value", "category", "updated_at"}),
 		}).Create(&s)
 	}
+	writeAudit(h.DB, c, "batch_upsert", "setting", fmt.Sprintf("batch updated %d settings", len(items)))
 	c.JSON(http.StatusOK, gin.H{"message": "saved"})
 }
 
 func (h *SettingHandler) Delete(c *gin.Context) {
 	h.DB.Where("key = ?", c.Param("key")).Delete(&model.SystemSetting{})
+	writeAudit(h.DB, c, "delete", "setting", fmt.Sprintf("deleted setting %s", c.Param("key")))
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 }

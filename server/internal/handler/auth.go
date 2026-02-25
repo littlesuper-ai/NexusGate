@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
@@ -95,6 +96,7 @@ func (h *AuthHandler) CreateUser(c *gin.Context) {
 		return
 	}
 
+	writeAudit(h.DB, c, "create", "user", fmt.Sprintf("created user %s role=%s (id=%d)", user.Username, user.Role, user.ID))
 	c.JSON(http.StatusCreated, user)
 }
 
@@ -104,11 +106,59 @@ func (h *AuthHandler) ListUsers(c *gin.Context) {
 	c.JSON(http.StatusOK, users)
 }
 
+func (h *AuthHandler) UpdateUser(c *gin.Context) {
+	var user model.User
+	if err := h.DB.First(&user, c.Param("id")).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+
+	var req struct {
+		Role     *model.Role `json:"role"`
+		Email    *string     `json:"email"`
+		Password *string     `json:"password"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	updates := map[string]any{}
+	if req.Role != nil {
+		updates["role"] = *req.Role
+	}
+	if req.Email != nil {
+		updates["email"] = *req.Email
+	}
+	if req.Password != nil {
+		if len(*req.Password) < 8 {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "password must be at least 8 characters"})
+			return
+		}
+		hashed, err := bcrypt.GenerateFromPassword([]byte(*req.Password), bcrypt.DefaultCost)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to hash password"})
+			return
+		}
+		updates["password"] = string(hashed)
+	}
+
+	if len(updates) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no fields to update"})
+		return
+	}
+
+	h.DB.Model(&user).Updates(updates)
+	writeAudit(h.DB, c, "update", "user", fmt.Sprintf("updated user %s (id=%d)", user.Username, user.ID))
+	c.JSON(http.StatusOK, user)
+}
+
 func (h *AuthHandler) DeleteUser(c *gin.Context) {
 	if err := h.DB.Delete(&model.User{}, c.Param("id")).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	writeAudit(h.DB, c, "delete", "user", fmt.Sprintf("deleted user id=%s", c.Param("id")))
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 }
 

@@ -15,8 +15,9 @@
       </el-table-column>
       <el-table-column prop="email" label="邮箱" />
       <el-table-column prop="created_at" label="创建时间" width="180" />
-      <el-table-column label="操作" width="120">
+      <el-table-column label="操作" width="180">
         <template #default="{ row }">
+          <el-button size="small" @click="openEdit(row)">编辑</el-button>
           <el-button size="small" type="danger" @click="handleDelete(row)">删除</el-button>
         </template>
       </el-table-column>
@@ -40,18 +41,43 @@
         <el-button type="primary" @click="handleCreate">创建</el-button>
       </template>
     </el-dialog>
+
+    <el-dialog v-model="showEdit" title="编辑用户" width="450">
+      <el-form :model="editForm" label-width="80px">
+        <el-form-item label="用户名">
+          <el-input :model-value="editForm.username" disabled />
+        </el-form-item>
+        <el-form-item label="角色">
+          <el-select v-model="editForm.role">
+            <el-option label="管理员" value="admin" />
+            <el-option label="运维" value="operator" />
+            <el-option label="只读" value="viewer" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="邮箱"><el-input v-model="editForm.email" /></el-form-item>
+        <el-form-item label="新密码">
+          <el-input v-model="editForm.password" type="password" show-password placeholder="留空不修改" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showEdit = false">取消</el-button>
+        <el-button type="primary" @click="handleEdit">保存</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getUsers, createUser, deleteUser } from '../api'
+import { getUsers, createUser, updateUser, deleteUser } from '../api'
 
 const users = ref<any[]>([])
 const loading = ref(false)
 const showCreate = ref(false)
+const showEdit = ref(false)
 const form = reactive({ username: '', password: '', role: 'operator', email: '' })
+const editForm = reactive({ id: 0, username: '', role: '', email: '', password: '' })
 
 const fetchUsers = async () => {
   loading.value = true
@@ -67,6 +93,29 @@ const handleCreate = async () => {
   await createUser({ ...form })
   ElMessage.success('用户已创建')
   showCreate.value = false
+  fetchUsers()
+}
+
+const openEdit = (user: any) => {
+  editForm.id = user.id
+  editForm.username = user.username
+  editForm.role = user.role
+  editForm.email = user.email || ''
+  editForm.password = ''
+  showEdit.value = true
+}
+
+const handleEdit = async () => {
+  const payload: Record<string, string> = {
+    role: editForm.role,
+    email: editForm.email,
+  }
+  if (editForm.password) {
+    payload.password = editForm.password
+  }
+  await updateUser(editForm.id, payload)
+  ElMessage.success('用户已更新')
+  showEdit.value = false
   fetchUsers()
 }
 

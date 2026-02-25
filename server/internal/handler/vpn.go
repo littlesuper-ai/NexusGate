@@ -39,6 +39,7 @@ func (h *VPNHandler) CreateInterface(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	writeAudit(h.DB, c, "create", "vpn_interface", fmt.Sprintf("created WireGuard interface %s (id=%d)", iface.Name, iface.ID))
 	c.JSON(http.StatusCreated, iface)
 }
 
@@ -53,6 +54,7 @@ func (h *VPNHandler) UpdateInterface(c *gin.Context) {
 		return
 	}
 	h.DB.Save(&iface)
+	writeAudit(h.DB, c, "update", "vpn_interface", fmt.Sprintf("updated WireGuard interface %s (id=%d)", iface.Name, iface.ID))
 	c.JSON(http.StatusOK, iface)
 }
 
@@ -62,6 +64,7 @@ func (h *VPNHandler) DeleteInterface(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	writeAudit(h.DB, c, "delete", "vpn_interface", fmt.Sprintf("deleted WireGuard interface id=%s", c.Param("id")))
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 }
 
@@ -88,6 +91,7 @@ func (h *VPNHandler) CreatePeer(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	writeAudit(h.DB, c, "create", "vpn_peer", fmt.Sprintf("created WireGuard peer %s (id=%d)", peer.Description, peer.ID))
 	c.JSON(http.StatusCreated, peer)
 }
 
@@ -102,6 +106,7 @@ func (h *VPNHandler) UpdatePeer(c *gin.Context) {
 		return
 	}
 	h.DB.Save(&peer)
+	writeAudit(h.DB, c, "update", "vpn_peer", fmt.Sprintf("updated WireGuard peer %s (id=%d)", peer.Description, peer.ID))
 	c.JSON(http.StatusOK, peer)
 }
 
@@ -110,6 +115,7 @@ func (h *VPNHandler) DeletePeer(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	writeAudit(h.DB, c, "delete", "vpn_peer", fmt.Sprintf("deleted WireGuard peer id=%s", c.Param("id")))
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 }
 
@@ -164,6 +170,9 @@ func generateWireGuardUCI(ifaces []model.WireGuardInterface, peers []model.WireG
 				b.WriteString(fmt.Sprintf("\toption description '%s'\n", peer.Description))
 			}
 			b.WriteString(fmt.Sprintf("\toption public_key '%s'\n", peer.PublicKey))
+			if peer.PresharedKey != "" {
+				b.WriteString(fmt.Sprintf("\toption preshared_key '%s'\n", peer.PresharedKey))
+			}
 			for _, cidr := range strings.Split(peer.AllowedIPs, ",") {
 				cidr = strings.TrimSpace(cidr)
 				if cidr != "" {

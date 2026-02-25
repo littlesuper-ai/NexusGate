@@ -39,6 +39,7 @@ func (h *FirewallHandler) CreateZone(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	writeAudit(h.DB, c, "create", "firewall_zone", fmt.Sprintf("created firewall zone %s (id=%d)", zone.Name, zone.ID))
 	c.JSON(http.StatusCreated, zone)
 }
 
@@ -53,6 +54,7 @@ func (h *FirewallHandler) UpdateZone(c *gin.Context) {
 		return
 	}
 	h.DB.Save(&zone)
+	writeAudit(h.DB, c, "update", "firewall_zone", fmt.Sprintf("updated firewall zone %s (id=%d)", zone.Name, zone.ID))
 	c.JSON(http.StatusOK, zone)
 }
 
@@ -61,6 +63,7 @@ func (h *FirewallHandler) DeleteZone(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	writeAudit(h.DB, c, "delete", "firewall_zone", fmt.Sprintf("deleted firewall zone id=%s", c.Param("id")))
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 }
 
@@ -87,6 +90,7 @@ func (h *FirewallHandler) CreateRule(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	writeAudit(h.DB, c, "create", "firewall_rule", fmt.Sprintf("created firewall rule %s (id=%d)", rule.Name, rule.ID))
 	c.JSON(http.StatusCreated, rule)
 }
 
@@ -101,6 +105,7 @@ func (h *FirewallHandler) UpdateRule(c *gin.Context) {
 		return
 	}
 	h.DB.Save(&rule)
+	writeAudit(h.DB, c, "update", "firewall_rule", fmt.Sprintf("updated firewall rule %s (id=%d)", rule.Name, rule.ID))
 	c.JSON(http.StatusOK, rule)
 }
 
@@ -109,6 +114,7 @@ func (h *FirewallHandler) DeleteRule(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
+	writeAudit(h.DB, c, "delete", "firewall_rule", fmt.Sprintf("deleted firewall rule id=%s", c.Param("id")))
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 }
 
