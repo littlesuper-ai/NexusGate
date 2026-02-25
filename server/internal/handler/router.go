@@ -30,6 +30,9 @@ func SetupRouter(db *gorm.DB, mqttClient mqtt.Client, cfg *config.Config, wsHub 
 	settingHandler := &SettingHandler{DB: db}
 	alertHandler := &AlertHandler{DB: db}
 
+	// Prometheus metrics (no auth — scraped by Prometheus)
+	r.GET("/metrics", RegisterMetrics(db, wsHub))
+
 	// WebSocket endpoint (no JWT for WS upgrade, auth via query param)
 	r.GET("/ws", wsHub.HandleWS)
 
@@ -44,6 +47,10 @@ func SetupRouter(db *gorm.DB, mqttClient mqtt.Client, cfg *config.Config, wsHub 
 	api := r.Group("/api/v1")
 	api.Use(middleware.JWTAuth(cfg.JWTSecret))
 	{
+		// Auth self-service (all roles)
+		api.GET("/auth/me", authHandler.Me)
+		api.PUT("/auth/password", authHandler.ChangePassword)
+
 		// Read-only routes (viewer, operator, admin)
 		api.GET("/devices", deviceHandler.List)
 		api.GET("/devices/:id", deviceHandler.Get)
@@ -77,6 +84,8 @@ func SetupRouter(db *gorm.DB, mqttClient mqtt.Client, cfg *config.Config, wsHub 
 			write.PUT("/devices/:id", deviceHandler.Update)
 			write.DELETE("/devices/:id", deviceHandler.Delete)
 			write.POST("/devices/:id/reboot", deviceHandler.Reboot)
+			write.POST("/devices/bulk/delete", deviceHandler.BulkDelete)
+			write.POST("/devices/bulk/reboot", deviceHandler.BulkReboot)
 
 			// Config
 			write.POST("/templates", configHandler.CreateTemplate)

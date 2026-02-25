@@ -67,6 +67,56 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	})
 }
 
+// Me returns the current authenticated user's info.
+func (h *AuthHandler) Me(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	var user model.User
+	if err := h.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{
+		"id":       user.ID,
+		"username": user.Username,
+		"role":     user.Role,
+		"email":    user.Email,
+	})
+}
+
+// ChangePassword allows the current user to change their own password.
+func (h *AuthHandler) ChangePassword(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	var req struct {
+		OldPassword string `json:"old_password" binding:"required"`
+		NewPassword string `json:"new_password" binding:"required,min=8"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	var user model.User
+	if err := h.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
+		return
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.OldPassword)); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "incorrect old password"})
+		return
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to hash password"})
+		return
+	}
+
+	h.DB.Model(&user).Update("password", string(hashed))
+	writeAudit(h.DB, c, "change_password", "user", fmt.Sprintf("user %s changed their password", user.Username))
+	c.JSON(http.StatusOK, gin.H{"message": "password changed"})
+}
+
 func (h *AuthHandler) CreateUser(c *gin.Context) {
 	var req struct {
 		Username string     `json:"username" binding:"required"`

@@ -28,6 +28,11 @@ api.interceptors.response.use(
 export const login = (username: string, password: string) =>
   api.post('/auth/login', { username, password })
 
+export const getMe = () => api.get('/auth/me')
+
+export const changePassword = (oldPassword: string, newPassword: string) =>
+  api.put('/auth/password', { old_password: oldPassword, new_password: newPassword })
+
 // Devices
 export const getDevices = (params?: Record<string, string>) =>
   api.get('/devices', { params })
@@ -43,6 +48,12 @@ export const deleteDevice = (id: number) =>
 
 export const rebootDevice = (id: number) =>
   api.post(`/devices/${id}/reboot`)
+
+export const bulkDeleteDevices = (ids: number[]) =>
+  api.post('/devices/bulk/delete', { ids })
+
+export const bulkRebootDevices = (ids: number[]) =>
+  api.post('/devices/bulk/reboot', { ids })
 
 export const getDeviceMetrics = (id: number) =>
   api.get(`/devices/${id}/metrics`)

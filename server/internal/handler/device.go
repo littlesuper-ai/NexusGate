@@ -189,6 +189,55 @@ func (h *DeviceHandler) Metrics(c *gin.Context) {
 	c.JSON(http.StatusOK, metrics)
 }
 
+// BulkDelete deletes multiple devices by IDs.
+func (h *DeviceHandler) BulkDelete(c *gin.Context) {
+	var req struct {
+		IDs []uint `json:"ids" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if len(req.IDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ids cannot be empty"})
+		return
+	}
+
+	result := h.DB.Where("id IN ?", req.IDs).Delete(&model.Device{})
+	writeAudit(h.DB, c, "bulk_delete", "device", fmt.Sprintf("bulk deleted %d device(s)", result.RowsAffected))
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("deleted %d device(s)", result.RowsAffected)})
+}
+
+// BulkReboot sends reboot command to multiple devices.
+func (h *DeviceHandler) BulkReboot(c *gin.Context) {
+	var req struct {
+		IDs []uint `json:"ids" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if len(req.IDs) == 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "ids cannot be empty"})
+		return
+	}
+
+	var devices []model.Device
+	h.DB.Where("id IN ?", req.IDs).Find(&devices)
+
+	count := 0
+	if h.MQTT != nil && h.MQTT.IsConnected() {
+		for _, device := range devices {
+			topic := fmt.Sprintf("nexusgate/devices/%s/command", device.MAC)
+			h.MQTT.Publish(topic, 1, false, `{"action":"reboot"}`)
+			count++
+		}
+	}
+
+	writeAudit(h.DB, c, "bulk_reboot", "device", fmt.Sprintf("bulk rebooted %d device(s)", count))
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("reboot command sent to %d device(s)", count)})
+}
+
 func (h *DeviceHandler) DashboardSummary(c *gin.Context) {
 	var total, online, offline, unknown int64
 

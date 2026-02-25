@@ -44,6 +44,7 @@ func main() {
 	// Start background jobs
 	jobs.StartOfflineDetector(db, wsHub)
 	jobs.StartMetricsCleanup(db)
+	jobs.StartAutoUpgradeChecker(db, mqttClient)
 
 	r := handler.SetupRouter(db, mqttClient, cfg, wsHub)
 
