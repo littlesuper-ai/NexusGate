@@ -69,7 +69,13 @@ func (h *DeviceHandler) List(c *gin.Context) {
 		query = query.Where("\"group\" = ?", group)
 	}
 	if status := c.Query("status"); status != "" {
-		query = query.Where("status = ?", status)
+		switch status {
+		case string(model.StatusOnline), string(model.StatusOffline), string(model.StatusUnknown):
+			query = query.Where("status = ?", status)
+		default:
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid status value"})
+			return
+		}
 	}
 	if search := c.Query("search"); search != "" {
 		like := "%" + search + "%"
@@ -95,7 +101,7 @@ func (h *DeviceHandler) List(c *gin.Context) {
 		return
 	}
 
-	if err := query.Find(&devices).Error; err != nil {
+	if err := query.Limit(1000).Find(&devices).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -156,9 +162,16 @@ func (h *DeviceHandler) Reboot(c *gin.Context) {
 		return
 	}
 
-	if h.MQTT != nil && h.MQTT.IsConnected() {
-		topic := fmt.Sprintf("nexusgate/devices/%s/command", device.MAC)
-		h.MQTT.Publish(topic, 1, false, `{"action":"reboot"}`)
+	if h.MQTT == nil || !h.MQTT.IsConnected() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "MQTT not connected"})
+		return
+	}
+	topic := fmt.Sprintf("nexusgate/devices/%s/command", device.MAC)
+	token := h.MQTT.Publish(topic, 1, false, `{"action":"reboot"}`)
+	token.Wait()
+	if err := token.Error(); err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "MQTT publish failed: " + err.Error()})
+		return
 	}
 
 	writeAudit(h.DB, c, "reboot", "device", fmt.Sprintf("rebooted device %s (id=%d)", device.Name, device.ID))
@@ -182,6 +195,9 @@ func (h *DeviceHandler) Metrics(c *gin.Context) {
 	if hours := c.Query("hours"); hours != "" {
 		var n int
 		if _, err := fmt.Sscanf(hours, "%d", &n); err == nil && n > 0 {
+			if n > 8760 {
+				n = 8760 // cap at 1 year
+			}
 			query = query.Where("collected_at >= ?", time.Now().Add(-time.Duration(n)*time.Hour))
 		}
 	}
@@ -230,11 +246,16 @@ func (h *DeviceHandler) BulkReboot(c *gin.Context) {
 	var devices []model.Device
 	h.DB.Where("id IN ?", req.IDs).Find(&devices)
 
+	if h.MQTT == nil || !h.MQTT.IsConnected() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "MQTT not connected"})
+		return
+	}
 	count := 0
-	if h.MQTT != nil && h.MQTT.IsConnected() {
-		for _, device := range devices {
-			topic := fmt.Sprintf("nexusgate/devices/%s/command", device.MAC)
-			h.MQTT.Publish(topic, 1, false, `{"action":"reboot"}`)
+	for _, device := range devices {
+		topic := fmt.Sprintf("nexusgate/devices/%s/command", device.MAC)
+		token := h.MQTT.Publish(topic, 1, false, `{"action":"reboot"}`)
+		token.Wait()
+		if token.Error() == nil {
 			count++
 		}
 	}
@@ -252,10 +273,16 @@ func (h *DeviceHandler) Export(c *gin.Context) {
 		query = query.Where("\"group\" = ?", group)
 	}
 	if status := c.Query("status"); status != "" {
-		query = query.Where("status = ?", status)
+		switch status {
+		case string(model.StatusOnline), string(model.StatusOffline), string(model.StatusUnknown):
+			query = query.Where("status = ?", status)
+		default:
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid status value"})
+			return
+		}
 	}
 
-	query.Order("id").Find(&devices)
+	query.Order("id").Limit(10000).Find(&devices)
 
 	c.Header("Content-Type", "text/csv; charset=utf-8")
 	c.Header("Content-Disposition", "attachment; filename=devices.csv")

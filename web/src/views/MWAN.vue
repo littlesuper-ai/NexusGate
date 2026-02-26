@@ -21,6 +21,7 @@
           <el-button type="primary" @click="openWanDialog()" :disabled="!selectedDevice">添加 WAN 接口</el-button>
         </el-row>
         <el-table :data="wans" stripe border size="small">
+          <template #empty><el-empty description="暂无 WAN 接口" :image-size="60" /></template>
           <el-table-column prop="id" label="ID" width="60" />
           <el-table-column prop="name" label="名称" width="100" />
           <el-table-column prop="interface" label="接口" width="120" />
@@ -50,6 +51,7 @@
           <el-button type="primary" @click="openPolicyDialog()" :disabled="!selectedDevice">添加策略</el-button>
         </el-row>
         <el-table :data="policies" stripe border size="small">
+          <template #empty><el-empty description="暂无负载策略" :image-size="60" /></template>
           <el-table-column prop="id" label="ID" width="60" />
           <el-table-column prop="name" label="策略名称" width="150" />
           <el-table-column prop="members" label="成员配置" />
@@ -69,6 +71,7 @@
           <el-button type="primary" @click="openRuleDialog()" :disabled="!selectedDevice">添加规则</el-button>
         </el-row>
         <el-table :data="rules" stripe border size="small">
+          <template #empty><el-empty description="暂无路由规则" :image-size="60" /></template>
           <el-table-column prop="id" label="ID" width="60" />
           <el-table-column prop="name" label="规则名" width="120" />
           <el-table-column prop="src_ip" label="源 IP" width="130" />

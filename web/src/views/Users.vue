@@ -5,6 +5,7 @@
     </el-row>
 
     <el-table :data="users" v-loading="loading" stripe>
+      <template #empty><el-empty description="暂无用户" :image-size="60" /></template>
       <el-table-column prop="username" label="用户名" />
       <el-table-column prop="role" label="角色" width="120">
         <template #default="{ row }">

@@ -19,6 +19,7 @@
           <el-button type="primary" size="small" :disabled="!deviceId" @click="showZoneDialog = true">新建区域</el-button>
         </el-row>
         <el-table :data="zones" stripe border>
+          <template #empty><el-empty description="暂无防火墙区域" :image-size="60" /></template>
           <el-table-column prop="name" label="区域名称" width="120" />
           <el-table-column prop="networks" label="关联网络" />
           <el-table-column prop="input" label="入站" width="100">
@@ -53,6 +54,7 @@
           <el-button type="primary" size="small" :disabled="!deviceId" @click="showRuleDialog = true">新建规则</el-button>
         </el-row>
         <el-table :data="rules" stripe border>
+          <template #empty><el-empty description="暂无防火墙规则" :image-size="60" /></template>
           <el-table-column prop="position" label="#" width="50" />
           <el-table-column prop="name" label="规则名称" width="160" />
           <el-table-column prop="src" label="源区域" width="100" />

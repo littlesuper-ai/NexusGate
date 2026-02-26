@@ -27,7 +27,13 @@ func (h *AlertHandler) List(c *gin.Context) {
 		query = query.Where("resolved = true")
 	}
 	if severity := c.Query("severity"); severity != "" {
-		query = query.Where("severity = ?", severity)
+		switch severity {
+		case string(model.SeverityWarning), string(model.SeverityCritical):
+			query = query.Where("severity = ?", severity)
+		default:
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid severity value"})
+			return
+		}
 	}
 
 	// Pagination

@@ -12,6 +12,7 @@
     </el-row>
 
     <el-table :data="templates" v-loading="loading" stripe>
+      <template #empty><el-empty description="暂无配置模板" :image-size="60" /></template>
       <el-table-column prop="name" label="模板名称" />
       <el-table-column prop="category" label="分类" width="120" />
       <el-table-column prop="description" label="描述" />

@@ -28,7 +28,7 @@ func (h *FirmwareHandler) List(c *gin.Context) {
 	if target := c.Query("target"); target != "" {
 		query = query.Where("target = ?", target)
 	}
-	query.Order("created_at DESC").Find(&firmwares)
+	query.Order("created_at DESC").Limit(200).Find(&firmwares)
 	c.JSON(http.StatusOK, firmwares)
 }
 
@@ -151,11 +151,18 @@ func (h *FirmwareHandler) PushUpgrade(c *gin.Context) {
 	}
 	h.DB.Create(&upgrade)
 
-	if h.MQTT != nil && h.MQTT.IsConnected() {
-		topic := fmt.Sprintf("nexusgate/devices/%s/command", device.MAC)
-		payload := fmt.Sprintf(`{"action":"upgrade","url":"%s","sha256":"%s","version":"%s"}`,
-			fw.DownloadURL, fw.SHA256, fw.Version)
-		h.MQTT.Publish(topic, 1, false, payload)
+	if h.MQTT == nil || !h.MQTT.IsConnected() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "MQTT not connected"})
+		return
+	}
+	topic := fmt.Sprintf("nexusgate/devices/%s/command", device.MAC)
+	payload := fmt.Sprintf(`{"action":"upgrade","url":"%s","sha256":"%s","version":"%s"}`,
+		fw.DownloadURL, fw.SHA256, fw.Version)
+	token := h.MQTT.Publish(topic, 1, false, payload)
+	token.Wait()
+	if err := token.Error(); err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "MQTT publish failed: " + err.Error()})
+		return
 	}
 
 	writeAudit(h.DB, c, "upgrade", "firmware", fmt.Sprintf("pushed firmware v%s to device %s", fw.Version, device.Name))
@@ -205,9 +212,12 @@ func (h *FirmwareHandler) BatchUpgrade(c *gin.Context) {
 			topic := fmt.Sprintf("nexusgate/devices/%s/command", device.MAC)
 			payload := fmt.Sprintf(`{"action":"upgrade","url":"%s","sha256":"%s","version":"%s"}`,
 				fw.DownloadURL, fw.SHA256, fw.Version)
-			h.MQTT.Publish(topic, 1, false, payload)
+			token := h.MQTT.Publish(topic, 1, false, payload)
+			token.Wait()
+			if token.Error() == nil {
+				count++
+			}
 		}
-		count++
 	}
 
 	writeAudit(h.DB, c, "batch_upgrade", "firmware", fmt.Sprintf("batch pushed firmware v%s to %d devices", fw.Version, count))

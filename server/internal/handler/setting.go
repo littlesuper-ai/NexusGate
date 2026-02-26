@@ -20,7 +20,7 @@ func (h *SettingHandler) List(c *gin.Context) {
 	if cat := c.Query("category"); cat != "" {
 		query = query.Where("category = ?", cat)
 	}
-	query.Order("category, key").Find(&items)
+	query.Order("category, key").Limit(500).Find(&items)
 	c.JSON(http.StatusOK, items)
 }
 

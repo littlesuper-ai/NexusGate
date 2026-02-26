@@ -21,6 +21,7 @@
           <el-button type="primary" @click="openPoolDialog()" :disabled="!selectedDevice">添加地址池</el-button>
         </el-row>
         <el-table :data="pools" stripe border size="small">
+          <template #empty><el-empty description="暂无 DHCP 地址池" :image-size="60" /></template>
           <el-table-column prop="id" label="ID" width="60" />
           <el-table-column prop="interface" label="接口" width="100" />
           <el-table-column prop="start" label="起始" width="80" />
@@ -48,6 +49,7 @@
           <el-button type="primary" @click="openLeaseDialog()" :disabled="!selectedDevice">添加绑定</el-button>
         </el-row>
         <el-table :data="leases" stripe border size="small">
+          <template #empty><el-empty description="暂无静态绑定" :image-size="60" /></template>
           <el-table-column prop="id" label="ID" width="60" />
           <el-table-column prop="name" label="主机名" width="150" />
           <el-table-column prop="mac" label="MAC 地址" width="180">

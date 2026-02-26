@@ -25,7 +25,7 @@ func (h *VPNHandler) ListInterfaces(c *gin.Context) {
 	if deviceID != "" {
 		query = query.Where("device_id = ?", deviceID)
 	}
-	query.Find(&ifaces)
+	query.Limit(500).Find(&ifaces)
 	c.JSON(http.StatusOK, ifaces)
 }
 
@@ -74,8 +74,13 @@ func (h *VPNHandler) UpdateInterface(c *gin.Context) {
 }
 
 func (h *VPNHandler) DeleteInterface(c *gin.Context) {
-	h.DB.Where("interface_id = ?", c.Param("id")).Delete(&model.WireGuardPeer{})
-	if err := h.DB.Delete(&model.WireGuardInterface{}, c.Param("id")).Error; err != nil {
+	err := h.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("interface_id = ?", c.Param("id")).Delete(&model.WireGuardPeer{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&model.WireGuardInterface{}, c.Param("id")).Error
+	})
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
@@ -92,7 +97,7 @@ func (h *VPNHandler) ListPeers(c *gin.Context) {
 	if ifaceID != "" {
 		query = query.Where("interface_id = ?", ifaceID)
 	}
-	query.Find(&peers)
+	query.Limit(500).Find(&peers)
 	c.JSON(http.StatusOK, peers)
 }
 
@@ -170,7 +175,10 @@ func (h *VPNHandler) ApplyVPN(c *gin.Context) {
 
 	record := model.DeviceConfig{DeviceID: device.ID, Content: uci, Status: "pending"}
 	h.DB.Create(&record)
-	publishConfig(h.MQTT, device.MAC, record.ID, uci)
+	if err := publishConfig(h.MQTT, device.MAC, record.ID, uci); err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "MQTT publish failed: " + err.Error(), "config_id": record.ID})
+		return
+	}
 
 	writeAudit(h.DB, c, "apply", "vpn", fmt.Sprintf("applied VPN config to device %s", device.Name))
 	c.JSON(http.StatusOK, gin.H{"message": "vpn config pushed", "config_id": record.ID})

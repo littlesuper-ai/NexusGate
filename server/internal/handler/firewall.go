@@ -25,7 +25,7 @@ func (h *FirewallHandler) ListZones(c *gin.Context) {
 	if deviceID != "" {
 		query = query.Where("device_id = ?", deviceID)
 	}
-	query.Order("id").Find(&zones)
+	query.Order("id").Limit(500).Find(&zones)
 	c.JSON(http.StatusOK, zones)
 }
 
@@ -99,7 +99,7 @@ func (h *FirewallHandler) ListRules(c *gin.Context) {
 	if deviceID != "" {
 		query = query.Where("device_id = ?", deviceID)
 	}
-	query.Order("position, id").Find(&rules)
+	query.Order("position, id").Limit(500).Find(&rules)
 	c.JSON(http.StatusOK, rules)
 }
 
@@ -185,7 +185,10 @@ func (h *FirewallHandler) ApplyFirewall(c *gin.Context) {
 
 	record := model.DeviceConfig{DeviceID: device.ID, Content: uci, Status: "pending"}
 	h.DB.Create(&record)
-	publishConfig(h.MQTT, device.MAC, record.ID, uci)
+	if err := publishConfig(h.MQTT, device.MAC, record.ID, uci); err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "MQTT publish failed: " + err.Error(), "config_id": record.ID})
+		return
+	}
 
 	writeAudit(h.DB, c, "apply", "firewall", fmt.Sprintf("applied firewall config to device %s", device.Name))
 	c.JSON(http.StatusOK, gin.H{"message": "firewall config pushed", "config_id": record.ID})

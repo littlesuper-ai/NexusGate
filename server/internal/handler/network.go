@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 
@@ -32,7 +33,7 @@ func (h *NetworkHandler) ListWANInterfaces(c *gin.Context) {
 	if did := c.Query("device_id"); did != "" {
 		query = query.Where("device_id = ?", did)
 	}
-	query.Order("id").Find(&items)
+	query.Order("id").Limit(500).Find(&items)
 	c.JSON(http.StatusOK, items)
 }
 
@@ -91,7 +92,7 @@ func (h *NetworkHandler) ListMWANPolicies(c *gin.Context) {
 	if did := c.Query("device_id"); did != "" {
 		query = query.Where("device_id = ?", did)
 	}
-	query.Find(&items)
+	query.Limit(500).Find(&items)
 	c.JSON(http.StatusOK, items)
 }
 
@@ -142,7 +143,7 @@ func (h *NetworkHandler) ListMWANRules(c *gin.Context) {
 	if did := c.Query("device_id"); did != "" {
 		query = query.Where("device_id = ?", did)
 	}
-	query.Order("position, id").Find(&items)
+	query.Order("position, id").Limit(500).Find(&items)
 	c.JSON(http.StatusOK, items)
 }
 
@@ -206,7 +207,10 @@ func (h *NetworkHandler) ApplyMWAN(c *gin.Context) {
 
 	record := model.DeviceConfig{DeviceID: device.ID, Content: uci, Status: "pending"}
 	h.DB.Create(&record)
-	publishConfig(h.MQTT, device.MAC, record.ID, uci)
+	if err := publishConfig(h.MQTT, device.MAC, record.ID, uci); err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "MQTT publish failed: " + err.Error(), "config_id": record.ID})
+		return
+	}
 	writeAudit(h.DB, c, "apply", "mwan", fmt.Sprintf("applied MWAN config to device %s", device.Name))
 	c.JSON(http.StatusOK, gin.H{"message": "mwan3 config pushed", "config_id": record.ID})
 }
@@ -235,7 +239,10 @@ func generateMWANUCI(wans []model.WANInterface, policies []model.MWANPolicy, rul
 		// Generate config member stanzas from the JSON members list
 		var members []mwanMember
 		if p.Members != "" {
-			json.Unmarshal([]byte(p.Members), &members)
+			if err := json.Unmarshal([]byte(p.Members), &members); err != nil {
+				log.Printf("warning: failed to parse MWAN policy %s members JSON: %v", p.Name, err)
+				continue
+			}
 		}
 		for _, m := range members {
 			memberName := fmt.Sprintf("%s_m%d_w%d", m.Iface, m.Metric, m.Weight)
@@ -284,7 +291,7 @@ func (h *NetworkHandler) ListDHCPPools(c *gin.Context) {
 	if did := c.Query("device_id"); did != "" {
 		query = query.Where("device_id = ?", did)
 	}
-	query.Find(&items)
+	query.Limit(500).Find(&items)
 	c.JSON(http.StatusOK, items)
 }
 
@@ -347,7 +354,7 @@ func (h *NetworkHandler) ListStaticLeases(c *gin.Context) {
 	if did := c.Query("device_id"); did != "" {
 		query = query.Where("device_id = ?", did)
 	}
-	query.Find(&items)
+	query.Limit(500).Find(&items)
 	c.JSON(http.StatusOK, items)
 }
 
@@ -412,7 +419,7 @@ func (h *NetworkHandler) ListVLANs(c *gin.Context) {
 	if did := c.Query("device_id"); did != "" {
 		query = query.Where("device_id = ?", did)
 	}
-	query.Order("vid").Find(&items)
+	query.Order("vid").Limit(500).Find(&items)
 	c.JSON(http.StatusOK, items)
 }
 
@@ -488,7 +495,10 @@ func (h *NetworkHandler) ApplyDHCP(c *gin.Context) {
 
 	record := model.DeviceConfig{DeviceID: device.ID, Content: uci, Status: "pending"}
 	h.DB.Create(&record)
-	publishConfig(h.MQTT, device.MAC, record.ID, uci)
+	if err := publishConfig(h.MQTT, device.MAC, record.ID, uci); err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "MQTT publish failed: " + err.Error(), "config_id": record.ID})
+		return
+	}
 	writeAudit(h.DB, c, "apply", "dhcp", fmt.Sprintf("applied DHCP config to device %s", device.Name))
 	c.JSON(http.StatusOK, gin.H{"message": "dhcp config pushed", "config_id": record.ID})
 }
@@ -542,7 +552,10 @@ func (h *NetworkHandler) ApplyVLAN(c *gin.Context) {
 
 	record := model.DeviceConfig{DeviceID: device.ID, Content: uci, Status: "pending"}
 	h.DB.Create(&record)
-	publishConfig(h.MQTT, device.MAC, record.ID, uci)
+	if err := publishConfig(h.MQTT, device.MAC, record.ID, uci); err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "MQTT publish failed: " + err.Error(), "config_id": record.ID})
+		return
+	}
 	writeAudit(h.DB, c, "apply", "vlan", fmt.Sprintf("applied VLAN config to device %s", device.Name))
 	c.JSON(http.StatusOK, gin.H{"message": "vlan config pushed", "config_id": record.ID})
 }

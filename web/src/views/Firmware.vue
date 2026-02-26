@@ -16,6 +16,7 @@
     </el-row>
 
     <el-table :data="firmwares" v-loading="loading" stripe>
+      <template #empty><el-empty description="暂无固件" :image-size="60" /></template>
       <el-table-column prop="version" label="版本" width="120" />
       <el-table-column prop="target" label="目标平台" width="130" />
       <el-table-column prop="filename" label="文件名" />

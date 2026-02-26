@@ -17,15 +17,17 @@ type configEnvelope struct {
 	Content  string `json:"content"`
 }
 
-// publishConfig sends a config envelope via MQTT and returns the JSON payload.
-func publishConfig(mqttClient mqtt.Client, mac string, configID uint, content string) {
+// publishConfig sends a config envelope via MQTT. Returns an error if publish fails.
+func publishConfig(mqttClient mqtt.Client, mac string, configID uint, content string) error {
 	if mqttClient == nil || !mqttClient.IsConnected() {
-		return
+		return fmt.Errorf("MQTT not connected")
 	}
 	envelope := configEnvelope{ConfigID: configID, Content: content}
 	payload, _ := json.Marshal(envelope)
 	topic := fmt.Sprintf("nexusgate/devices/%s/config", mac)
-	mqttClient.Publish(topic, 1, false, payload)
+	token := mqttClient.Publish(topic, 1, false, payload)
+	token.Wait()
+	return token.Error()
 }
 
 type ConfigHandler struct {
@@ -41,7 +43,7 @@ func (h *ConfigHandler) ListTemplates(c *gin.Context) {
 		query = query.Where("category = ?", category)
 	}
 
-	query.Find(&templates)
+	query.Limit(500).Find(&templates)
 	c.JSON(http.StatusOK, templates)
 }
 
@@ -127,7 +129,10 @@ func (h *ConfigHandler) PushConfig(c *gin.Context) {
 	}
 	h.DB.Create(&record)
 
-	publishConfig(h.MQTT, device.MAC, record.ID, content)
+	if err := publishConfig(h.MQTT, device.MAC, record.ID, content); err != nil {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "MQTT publish failed: " + err.Error(), "config_id": record.ID})
+		return
+	}
 	writeAudit(h.DB, c, "push", "config", fmt.Sprintf("pushed config to device %s (config_id=%d)", device.Name, record.ID))
 	c.JSON(http.StatusOK, gin.H{"message": "config push initiated", "config_id": record.ID})
 }

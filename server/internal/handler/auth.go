@@ -207,7 +207,7 @@ func (h *AuthHandler) CreateUser(c *gin.Context) {
 
 func (h *AuthHandler) ListUsers(c *gin.Context) {
 	var users []model.User
-	h.DB.Find(&users)
+	h.DB.Order("id").Limit(500).Find(&users)
 	c.JSON(http.StatusOK, users)
 }
 
@@ -259,8 +259,13 @@ func (h *AuthHandler) UpdateUser(c *gin.Context) {
 }
 
 func (h *AuthHandler) DeleteUser(c *gin.Context) {
-	if err := h.DB.Delete(&model.User{}, c.Param("id")).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	result := h.DB.Delete(&model.User{}, c.Param("id"))
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
+		return
+	}
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found"})
 		return
 	}
 	writeAudit(h.DB, c, "delete", "user", fmt.Sprintf("deleted user id=%s", c.Param("id")))
