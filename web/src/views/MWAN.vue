@@ -9,7 +9,7 @@
           </el-select>
         </el-col>
         <el-col :span="4">
-          <el-button type="success" :disabled="!selectedDevice" @click="handleApply">应用到设备</el-button>
+          <el-button type="success" :disabled="!selectedDevice" :loading="applying" @click="handleApply">应用到设备</el-button>
         </el-col>
       </el-row>
     </el-card>
@@ -110,7 +110,7 @@
       </el-form>
       <template #footer>
         <el-button @click="showWanDialog = false">取消</el-button>
-        <el-button type="primary" @click="submitWan">确定</el-button>
+        <el-button type="primary" @click="submitWan" :loading="submitting">确定</el-button>
       </template>
     </el-dialog>
 
@@ -130,7 +130,7 @@
       </el-form>
       <template #footer>
         <el-button @click="showPolicyDialog = false">取消</el-button>
-        <el-button type="primary" @click="submitPolicy">确定</el-button>
+        <el-button type="primary" @click="submitPolicy" :loading="submitting">确定</el-button>
       </template>
     </el-dialog>
 
@@ -160,7 +160,7 @@
       </el-form>
       <template #footer>
         <el-button @click="showRuleDialog = false">取消</el-button>
-        <el-button type="primary" @click="submitRule">确定</el-button>
+        <el-button type="primary" @click="submitRule" :loading="submitting">确定</el-button>
       </template>
     </el-dialog>
   </div>
@@ -172,12 +172,13 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getDevices, getWANInterfaces, createWANInterface, updateWANInterface, deleteWANInterface,
   getMWANPolicies, createMWANPolicy, updateMWANPolicy, deleteMWANPolicy,
-  getMWANRules, createMWANRule, updateMWANRule, deleteMWANRule, applyMWAN,
+  getMWANRules, createMWANRule, updateMWANRule, deleteMWANRule, applyMWAN, apiErr,
 } from '../api'
 
 const devices = ref<any[]>([])
 const selectedDevice = ref<number | null>(null)
 const activeTab = ref('wan')
+const applying = ref(false)
 
 const wans = ref<any[]>([])
 const policies = ref<any[]>([])
@@ -200,6 +201,7 @@ const defaultRule = {
   src_port: '', dest_port: '', policy: '', enabled: true, position: 0,
 }
 
+const submitting = ref(false)
 const wanForm = reactive({ ...defaultWan })
 const policyForm = reactive({ ...defaultPolicy })
 const ruleForm = reactive({ ...defaultRule })
@@ -250,6 +252,7 @@ const fetchAll = async () => {
 }
 
 const submitWan = async () => {
+  submitting.value = true
   try {
     if (editingWanId.value) {
       await updateWANInterface(editingWanId.value, { ...wanForm, device_id: selectedDevice.value })
@@ -260,7 +263,8 @@ const submitWan = async () => {
     }
     showWanDialog.value = false; editingWanId.value = null
     Object.assign(wanForm, defaultWan); fetchAll()
-  } catch { ElMessage.error('保存 WAN 接口失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '保存 WAN 接口失败')) }
+  finally { submitting.value = false }
 }
 const handleDeleteWan = async (id: number) => {
   await ElMessageBox.confirm('确认删除此 WAN 接口？', '确认')
@@ -269,6 +273,7 @@ const handleDeleteWan = async (id: number) => {
   } catch { ElMessage.error('删除 WAN 接口失败') }
 }
 const submitPolicy = async () => {
+  submitting.value = true
   try {
     if (editingPolicyId.value) {
       await updateMWANPolicy(editingPolicyId.value, { ...policyForm, device_id: selectedDevice.value })
@@ -279,7 +284,8 @@ const submitPolicy = async () => {
     }
     showPolicyDialog.value = false; editingPolicyId.value = null
     Object.assign(policyForm, defaultPolicy); fetchAll()
-  } catch { ElMessage.error('保存策略失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '保存策略失败')) }
+  finally { submitting.value = false }
 }
 const handleDeletePolicy = async (id: number) => {
   await ElMessageBox.confirm('确认删除此策略？', '确认')
@@ -288,6 +294,7 @@ const handleDeletePolicy = async (id: number) => {
   } catch { ElMessage.error('删除策略失败') }
 }
 const submitRule = async () => {
+  submitting.value = true
   try {
     if (editingRuleId.value) {
       await updateMWANRule(editingRuleId.value, { ...ruleForm, device_id: selectedDevice.value })
@@ -298,7 +305,8 @@ const submitRule = async () => {
     }
     showRuleDialog.value = false; editingRuleId.value = null
     Object.assign(ruleForm, defaultRule); fetchAll()
-  } catch { ElMessage.error('保存规则失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '保存规则失败')) }
+  finally { submitting.value = false }
 }
 const handleDeleteRule = async (id: number) => {
   await ElMessageBox.confirm('确认删除此规则？', '确认')
@@ -310,10 +318,12 @@ const handleDeleteRule = async (id: number) => {
 const handleApply = async () => {
   if (!selectedDevice.value) return
   await ElMessageBox.confirm('确认应用 mwan3 配置到设备？', '确认应用', { type: 'warning' })
+  applying.value = true
   try {
     const { data } = await applyMWAN(selectedDevice.value)
     ElMessage.success(data.message || '配置已推送')
-  } catch { ElMessage.error('MWAN 配置下发失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, 'MWAN 配置下发失败')) }
+  finally { applying.value = false }
 }
 
 onMounted(async () => {

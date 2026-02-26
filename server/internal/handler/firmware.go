@@ -104,7 +104,16 @@ func (h *FirmwareHandler) Delete(c *gin.Context) {
 	}
 
 	os.Remove(filepath.Join(firmwareDir, fw.Filename))
-	h.DB.Delete(&fw)
+	err := h.DB.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("firmware_id = ?", fw.ID).Delete(&model.FirmwareUpgrade{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&fw).Error
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	writeAudit(h.DB, c, "delete", "firmware", fmt.Sprintf("deleted firmware %s (id=%d)", fw.Filename, fw.ID))
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 }
@@ -115,7 +124,10 @@ func (h *FirmwareHandler) MarkStable(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "firmware not found"})
 		return
 	}
-	h.DB.Model(&fw).Update("is_stable", true)
+	if err := h.DB.Model(&fw).Update("is_stable", true).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to mark as stable"})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{"message": "marked as stable"})
 }
 
@@ -155,11 +167,15 @@ func (h *FirmwareHandler) PushUpgrade(c *gin.Context) {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "MQTT not connected"})
 		return
 	}
+	downloadURL := buildDownloadURL(c, fw.DownloadURL)
 	topic := fmt.Sprintf("nexusgate/devices/%s/command", device.MAC)
 	payload := fmt.Sprintf(`{"action":"upgrade","url":"%s","sha256":"%s","version":"%s"}`,
-		fw.DownloadURL, fw.SHA256, fw.Version)
+		downloadURL, fw.SHA256, fw.Version)
 	token := h.MQTT.Publish(topic, 1, false, payload)
-	token.Wait()
+	if !token.WaitTimeout(mqttPublishTimeout) {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "MQTT publish timed out"})
+		return
+	}
 	if err := token.Error(); err != nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "MQTT publish failed: " + err.Error()})
 		return
@@ -197,6 +213,7 @@ func (h *FirmwareHandler) BatchUpgrade(c *gin.Context) {
 	}
 	query.Find(&devices)
 
+	downloadURL := buildDownloadURL(c, fw.DownloadURL)
 	now := time.Now()
 	count := 0
 	for _, device := range devices {
@@ -211,10 +228,9 @@ func (h *FirmwareHandler) BatchUpgrade(c *gin.Context) {
 		if h.MQTT != nil && h.MQTT.IsConnected() {
 			topic := fmt.Sprintf("nexusgate/devices/%s/command", device.MAC)
 			payload := fmt.Sprintf(`{"action":"upgrade","url":"%s","sha256":"%s","version":"%s"}`,
-				fw.DownloadURL, fw.SHA256, fw.Version)
+				downloadURL, fw.SHA256, fw.Version)
 			token := h.MQTT.Publish(topic, 1, false, payload)
-			token.Wait()
-			if token.Error() == nil {
+			if token.WaitTimeout(mqttPublishTimeout) && token.Error() == nil {
 				count++
 			}
 		}
@@ -232,6 +248,15 @@ func (h *FirmwareHandler) UpgradeHistory(c *gin.Context) {
 	}
 	query.Order("created_at DESC").Limit(100).Find(&upgrades)
 	c.JSON(http.StatusOK, upgrades)
+}
+
+// buildDownloadURL constructs an absolute firmware download URL from the request context.
+func buildDownloadURL(c *gin.Context, relativePath string) string {
+	scheme := "http"
+	if c.Request.TLS != nil || c.GetHeader("X-Forwarded-Proto") == "https" {
+		scheme = "https"
+	}
+	return fmt.Sprintf("%s://%s%s", scheme, c.Request.Host, relativePath)
 }
 
 func hashFile(path string) (string, error) {

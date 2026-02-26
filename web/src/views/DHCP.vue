@@ -82,7 +82,7 @@
       </el-form>
       <template #footer>
         <el-button @click="showPoolDialog = false">取消</el-button>
-        <el-button type="primary" @click="submitPool">确定</el-button>
+        <el-button type="primary" @click="submitPool" :loading="submitting">确定</el-button>
       </template>
     </el-dialog>
 
@@ -95,7 +95,7 @@
       </el-form>
       <template #footer>
         <el-button @click="showLeaseDialog = false">取消</el-button>
-        <el-button type="primary" @click="submitLease">确定</el-button>
+        <el-button type="primary" @click="submitLease" :loading="submitting">确定</el-button>
       </template>
     </el-dialog>
   </div>
@@ -106,7 +106,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getDevices, getDHCPPools, createDHCPPool, updateDHCPPool, deleteDHCPPool,
-  getStaticLeases, createStaticLease, updateStaticLease, deleteStaticLease, applyDHCP,
+  getStaticLeases, createStaticLease, updateStaticLease, deleteStaticLease, applyDHCP, apiErr,
 } from '../api'
 
 const devices = ref<any[]>([])
@@ -118,6 +118,7 @@ const leases = ref<any[]>([])
 const applying = ref(false)
 const showPoolDialog = ref(false)
 const showLeaseDialog = ref(false)
+const submitting = ref(false)
 const editingPoolId = ref<number | null>(null)
 const editingLeaseId = ref<number | null>(null)
 
@@ -165,6 +166,7 @@ const fetchAll = async () => {
 }
 
 const submitPool = async () => {
+  submitting.value = true
   try {
     if (editingPoolId.value) {
       await updateDHCPPool(editingPoolId.value, { ...poolForm, device_id: selectedDevice.value })
@@ -177,7 +179,8 @@ const submitPool = async () => {
     Object.assign(poolForm, defaultPoolForm)
     editingPoolId.value = null
     fetchAll()
-  } catch { ElMessage.error('保存地址池失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '保存地址池失败')) }
+  finally { submitting.value = false }
 }
 
 const handleDeletePool = async (id: number) => {
@@ -188,6 +191,7 @@ const handleDeletePool = async (id: number) => {
 }
 
 const submitLease = async () => {
+  submitting.value = true
   try {
     if (editingLeaseId.value) {
       await updateStaticLease(editingLeaseId.value, { ...leaseForm, device_id: selectedDevice.value })
@@ -200,7 +204,8 @@ const submitLease = async () => {
     Object.assign(leaseForm, defaultLeaseForm)
     editingLeaseId.value = null
     fetchAll()
-  } catch { ElMessage.error('保存绑定失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '保存绑定失败')) }
+  finally { submitting.value = false }
 }
 
 const handleDeleteLease = async (id: number) => {

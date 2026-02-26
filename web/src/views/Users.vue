@@ -39,7 +39,7 @@
       </el-form>
       <template #footer>
         <el-button @click="showCreate = false">取消</el-button>
-        <el-button type="primary" @click="handleCreate">创建</el-button>
+        <el-button type="primary" @click="handleCreate" :loading="submitting">创建</el-button>
       </template>
     </el-dialog>
 
@@ -62,7 +62,7 @@
       </el-form>
       <template #footer>
         <el-button @click="showEdit = false">取消</el-button>
-        <el-button type="primary" @click="handleEdit">保存</el-button>
+        <el-button type="primary" @click="handleEdit" :loading="submitting">保存</el-button>
       </template>
     </el-dialog>
   </div>
@@ -71,12 +71,13 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getUsers, createUser, updateUser, deleteUser } from '../api'
+import { getUsers, createUser, updateUser, deleteUser, apiErr } from '../api'
 
 const users = ref<any[]>([])
 const loading = ref(false)
 const showCreate = ref(false)
 const showEdit = ref(false)
+const submitting = ref(false)
 const form = reactive({ username: '', password: '', role: 'operator', email: '' })
 const editForm = reactive({ id: 0, username: '', role: '', email: '', password: '' })
 
@@ -91,10 +92,15 @@ const fetchUsers = async () => {
 }
 
 const handleCreate = async () => {
-  await createUser({ ...form })
-  ElMessage.success('用户已创建')
-  showCreate.value = false
-  fetchUsers()
+  submitting.value = true
+  try {
+    await createUser({ ...form })
+    ElMessage.success('用户已创建')
+    showCreate.value = false
+    Object.assign(form, { username: '', password: '', role: 'operator', email: '' })
+    fetchUsers()
+  } catch (e: any) { ElMessage.error(apiErr(e, '创建用户失败')) }
+  finally { submitting.value = false }
 }
 
 const openEdit = (user: any) => {
@@ -107,17 +113,21 @@ const openEdit = (user: any) => {
 }
 
 const handleEdit = async () => {
-  const payload: Record<string, string> = {
-    role: editForm.role,
-    email: editForm.email,
-  }
-  if (editForm.password) {
-    payload.password = editForm.password
-  }
-  await updateUser(editForm.id, payload)
-  ElMessage.success('用户已更新')
-  showEdit.value = false
-  fetchUsers()
+  submitting.value = true
+  try {
+    const payload: Record<string, string> = {
+      role: editForm.role,
+      email: editForm.email,
+    }
+    if (editForm.password) {
+      payload.password = editForm.password
+    }
+    await updateUser(editForm.id, payload)
+    ElMessage.success('用户已更新')
+    showEdit.value = false
+    fetchUsers()
+  } catch (e: any) { ElMessage.error(apiErr(e, '更新用户失败')) }
+  finally { submitting.value = false }
 }
 
 const handleDelete = async (user: any) => {

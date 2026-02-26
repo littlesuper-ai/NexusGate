@@ -125,7 +125,7 @@ var nameRE = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
 
 func validateName(field, value string) error {
 	if value == "" {
-		return nil
+		return fmt.Errorf("%s is required", field)
 	}
 	if !nameRE.MatchString(value) {
 		return fmt.Errorf("%s must contain only letters, digits, hyphens, and underscores", field)

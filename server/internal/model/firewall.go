@@ -8,8 +8,8 @@ import (
 
 type FirewallZone struct {
 	ID        uint           `json:"id" gorm:"primaryKey"`
-	DeviceID  uint           `json:"device_id" gorm:"index;not null"`
-	Name      string         `json:"name" gorm:"not null"`
+	DeviceID  uint           `json:"device_id" gorm:"uniqueIndex:idx_zone_device_name;not null"`
+	Name      string         `json:"name" gorm:"uniqueIndex:idx_zone_device_name;not null"`
 	Input     string         `json:"input" gorm:"default:REJECT"`  // ACCEPT, REJECT, DROP
 	Output    string         `json:"output" gorm:"default:ACCEPT"`
 	Forward   string         `json:"forward" gorm:"default:REJECT"`
@@ -22,8 +22,8 @@ type FirewallZone struct {
 
 type FirewallRule struct {
 	ID        uint           `json:"id" gorm:"primaryKey"`
-	DeviceID  uint           `json:"device_id" gorm:"index;not null"`
-	Name      string         `json:"name" gorm:"not null"`
+	DeviceID  uint           `json:"device_id" gorm:"uniqueIndex:idx_rule_device_name;not null"`
+	Name      string         `json:"name" gorm:"uniqueIndex:idx_rule_device_name;not null"`
 	Src       string         `json:"src"`       // source zone
 	Dest      string         `json:"dest"`      // dest zone
 	Proto     string         `json:"proto"`     // tcp, udp, icmp, any

@@ -184,7 +184,10 @@ func (h *FirewallHandler) ApplyFirewall(c *gin.Context) {
 	uci := generateFirewallUCI(zones, rules)
 
 	record := model.DeviceConfig{DeviceID: device.ID, Content: uci, Status: "pending"}
-	h.DB.Create(&record)
+	if err := h.DB.Create(&record).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save config record"})
+		return
+	}
 	if err := publishConfig(h.MQTT, device.MAC, record.ID, uci); err != nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "MQTT publish failed: " + err.Error(), "config_id": record.ID})
 		return

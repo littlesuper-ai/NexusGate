@@ -4,12 +4,15 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/nexusgate/nexusgate/internal/model"
 	"gorm.io/gorm"
 )
+
+const mqttPublishTimeout = 5 * time.Second
 
 // configEnvelope wraps UCI config content with an ID so the agent can ACK.
 type configEnvelope struct {
@@ -26,7 +29,9 @@ func publishConfig(mqttClient mqtt.Client, mac string, configID uint, content st
 	payload, _ := json.Marshal(envelope)
 	topic := fmt.Sprintf("nexusgate/devices/%s/config", mac)
 	token := mqttClient.Publish(topic, 1, false, payload)
-	token.Wait()
+	if !token.WaitTimeout(mqttPublishTimeout) {
+		return fmt.Errorf("MQTT publish timed out")
+	}
 	return token.Error()
 }
 
@@ -81,7 +86,10 @@ func (h *ConfigHandler) UpdateTemplate(c *gin.Context) {
 	tpl.Content = req.Content
 	tpl.Version++
 
-	h.DB.Save(&tpl)
+	if err := h.DB.Save(&tpl).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	writeAudit(h.DB, c, "update", "template", fmt.Sprintf("updated template %s (id=%d) to v%d", tpl.Name, tpl.ID, tpl.Version))
 	c.JSON(http.StatusOK, tpl)
 }
@@ -127,7 +135,10 @@ func (h *ConfigHandler) PushConfig(c *gin.Context) {
 		Content:    content,
 		Status:     "pending",
 	}
-	h.DB.Create(&record)
+	if err := h.DB.Create(&record).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save config record"})
+		return
+	}
 
 	if err := publishConfig(h.MQTT, device.MAC, record.ID, content); err != nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "MQTT publish failed: " + err.Error(), "config_id": record.ID})

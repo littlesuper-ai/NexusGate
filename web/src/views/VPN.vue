@@ -8,7 +8,7 @@
         </el-select>
       </el-col>
       <el-col :span="12" style="text-align: right">
-        <el-button type="success" :disabled="!deviceId" @click="handleApply">应用到设备</el-button>
+        <el-button type="success" :disabled="!deviceId" :loading="applying" @click="handleApply">应用到设备</el-button>
       </el-col>
     </el-row>
 
@@ -80,7 +80,7 @@
       </el-form>
       <template #footer>
         <el-button @click="showIfaceDialog = false">取消</el-button>
-        <el-button type="primary" @click="handleCreateIface">创建</el-button>
+        <el-button type="primary" @click="handleCreateIface" :loading="submitting">创建</el-button>
       </template>
     </el-dialog>
 
@@ -95,7 +95,7 @@
       </el-form>
       <template #footer>
         <el-button @click="showPeerDialog = false">取消</el-button>
-        <el-button type="primary" @click="handleCreatePeer">添加</el-button>
+        <el-button type="primary" @click="handleCreatePeer" :loading="submitting">添加</el-button>
       </template>
     </el-dialog>
   </div>
@@ -106,7 +106,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getDevices, getVPNInterfaces, createVPNInterface, deleteVPNInterface,
-  getVPNPeers, createVPNPeer, deleteVPNPeer, applyVPN,
+  getVPNPeers, createVPNPeer, deleteVPNPeer, applyVPN, apiErr,
 } from '../api'
 
 const devices = ref<any[]>([])
@@ -114,6 +114,8 @@ const deviceId = ref<number | null>(null)
 const interfaces = ref<any[]>([])
 const peers = ref<any[]>([])
 const selectedIface = ref<any>(null)
+const submitting = ref(false)
+const applying = ref(false)
 const showIfaceDialog = ref(false)
 const showPeerDialog = ref(false)
 
@@ -141,12 +143,15 @@ const selectInterface = async (iface: any) => {
 }
 
 const handleCreateIface = async () => {
+  submitting.value = true
   try {
     await createVPNInterface({ ...ifaceForm, device_id: deviceId.value, enabled: true })
     ElMessage.success('接口已创建')
     showIfaceDialog.value = false
+    Object.assign(ifaceForm, { name: 'wg0', address: '10.99.0.1/24', listen_port: 51820, private_key: '', public_key: '' })
     fetchInterfaces()
-  } catch { ElMessage.error('创建接口失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '创建接口失败')) }
+  finally { submitting.value = false }
 }
 
 const handleDeleteIface = async (iface: any) => {
@@ -159,12 +164,15 @@ const handleDeleteIface = async (iface: any) => {
 }
 
 const handleCreatePeer = async () => {
+  submitting.value = true
   try {
     await createVPNPeer({ ...peerForm, interface_id: selectedIface.value.id, enabled: true })
     ElMessage.success('Peer 已添加')
     showPeerDialog.value = false
+    Object.assign(peerForm, { description: '', public_key: '', allowed_ips: '', endpoint: '', keepalive: 25 })
     selectInterface(selectedIface.value)
-  } catch { ElMessage.error('添加 Peer 失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '添加 Peer 失败')) }
+  finally { submitting.value = false }
 }
 
 const handleDeletePeer = async (peer: any) => {
@@ -179,10 +187,12 @@ const handleDeletePeer = async (peer: any) => {
 const handleApply = async () => {
   if (!deviceId.value) return
   await ElMessageBox.confirm('确认将 VPN 配置应用到设备？', '应用确认', { type: 'warning' })
+  applying.value = true
   try {
     await applyVPN(deviceId.value)
     ElMessage.success('VPN 配置已下发')
-  } catch { ElMessage.error('配置下发失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '配置下发失败')) }
+  finally { applying.value = false }
 }
 
 onMounted(async () => {

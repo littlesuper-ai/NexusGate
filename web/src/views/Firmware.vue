@@ -114,7 +114,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getFirmwares, uploadFirmware, deleteFirmware, markFirmwareStable,
-  pushFirmwareUpgrade, batchFirmwareUpgrade, getDevices,
+  pushFirmwareUpgrade, batchFirmwareUpgrade, getDevices, apiErr,
 } from '../api'
 
 const firmwares = ref<any[]>([])
@@ -159,7 +159,7 @@ const handleUpload = async () => {
     showUpload.value = false
     selectedFile = null
     fetchFirmwares()
-  } catch { ElMessage.error('上传失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '上传失败')) }
   finally { uploading.value = false }
 }
 

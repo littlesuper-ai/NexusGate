@@ -54,7 +54,7 @@
       </el-form>
       <template #footer>
         <el-button @click="showDialog = false">取消</el-button>
-        <el-button type="primary" @click="submitForm">确定</el-button>
+        <el-button type="primary" @click="submitForm" :loading="submitting">确定</el-button>
       </template>
     </el-dialog>
   </div>
@@ -63,12 +63,13 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getDevices, getVLANs, createVLAN, updateVLAN, deleteVLAN, applyVLAN } from '../api'
+import { getDevices, getVLANs, createVLAN, updateVLAN, deleteVLAN, applyVLAN, apiErr } from '../api'
 
 const devices = ref<any[]>([])
 const selectedDevice = ref<number | null>(null)
 const vlans = ref<any[]>([])
 const applying = ref(false)
+const submitting = ref(false)
 const showDialog = ref(false)
 const editing = ref(false)
 const editId = ref(0)
@@ -100,6 +101,7 @@ const openEdit = (row: any) => {
 }
 
 const submitForm = async () => {
+  submitting.value = true
   try {
     if (editing.value) {
       await updateVLAN(editId.value, { ...form, device_id: selectedDevice.value })
@@ -109,7 +111,8 @@ const submitForm = async () => {
       ElMessage.success('已添加')
     }
     showDialog.value = false; resetForm(); fetchVLANs()
-  } catch { ElMessage.error('保存 VLAN 失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '保存 VLAN 失败')) }
+  finally { submitting.value = false }
 }
 
 const handleDelete = async (id: number) => {

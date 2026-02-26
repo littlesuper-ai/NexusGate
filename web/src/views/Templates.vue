@@ -49,7 +49,7 @@
       </el-form>
       <template #footer>
         <el-button @click="showCreate = false">取消</el-button>
-        <el-button type="primary" @click="handleSave">保存</el-button>
+        <el-button type="primary" @click="handleSave" :loading="submitting">保存</el-button>
       </template>
     </el-dialog>
   </div>
@@ -65,6 +65,7 @@ const loading = ref(false)
 const showCreate = ref(false)
 const category = ref('')
 const editingId = ref<number | null>(null)
+const submitting = ref(false)
 const form = reactive({ name: '', category: '', description: '', content: '' })
 
 const fetchTemplates = async () => {
@@ -102,6 +103,7 @@ const handleSave = async () => {
     ElMessage.warning('请输入配置内容')
     return
   }
+  submitting.value = true
   try {
     if (editingId.value) {
       await updateTemplate(editingId.value, { ...form })
@@ -111,9 +113,12 @@ const handleSave = async () => {
     ElMessage.success('已保存')
     showCreate.value = false
     editingId.value = null
+    Object.assign(form, { name: '', category: '', description: '', content: '' })
     fetchTemplates()
   } catch {
     ElMessage.error('保存失败')
+  } finally {
+    submitting.value = false
   }
 }
 

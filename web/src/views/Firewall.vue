@@ -8,7 +8,7 @@
         </el-select>
       </el-col>
       <el-col :span="12" style="text-align: right">
-        <el-button type="success" :disabled="!deviceId" @click="handleApply">应用到设备</el-button>
+        <el-button type="success" :disabled="!deviceId" :loading="applying" @click="handleApply">应用到设备</el-button>
       </el-col>
     </el-row>
 
@@ -99,7 +99,7 @@
       </el-form>
       <template #footer>
         <el-button @click="showZoneDialog = false">取消</el-button>
-        <el-button type="primary" @click="handleCreateZone">创建</el-button>
+        <el-button type="primary" @click="handleCreateZone" :loading="submitting">创建</el-button>
       </template>
     </el-dialog>
 
@@ -122,7 +122,7 @@
       </el-form>
       <template #footer>
         <el-button @click="showRuleDialog = false">取消</el-button>
-        <el-button type="primary" @click="handleCreateRule">创建</el-button>
+        <el-button type="primary" @click="handleCreateRule" :loading="submitting">创建</el-button>
       </template>
     </el-dialog>
   </div>
@@ -133,7 +133,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getDevices, getFirewallZones, createFirewallZone, deleteFirewallZone,
-  getFirewallRules, createFirewallRule, deleteFirewallRule, applyFirewall,
+  getFirewallRules, createFirewallRule, deleteFirewallRule, applyFirewall, apiErr,
 } from '../api'
 
 const devices = ref<any[]>([])
@@ -143,6 +143,8 @@ const rules = ref<any[]>([])
 const showZoneDialog = ref(false)
 const showRuleDialog = ref(false)
 
+const submitting = ref(false)
+const applying = ref(false)
 const zoneForm = reactive({ name: '', networks: '', input: 'REJECT', output: 'ACCEPT', forward: 'REJECT', masq: false })
 const ruleForm = reactive({ name: '', src: '', dest: '', proto: 'tcp', src_ip: '', dest_ip: '', dest_port: '', target: 'ACCEPT', position: 0 })
 
@@ -156,12 +158,15 @@ const fetchAll = async () => {
 }
 
 const handleCreateZone = async () => {
+  submitting.value = true
   try {
     await createFirewallZone({ ...zoneForm, device_id: deviceId.value })
     ElMessage.success('区域已创建')
     showZoneDialog.value = false
+    Object.assign(zoneForm, { name: '', networks: '', input: 'REJECT', output: 'ACCEPT', forward: 'REJECT', masq: false })
     fetchAll()
-  } catch { ElMessage.error('创建区域失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '创建区域失败')) }
+  finally { submitting.value = false }
 }
 
 const handleDeleteZone = async (zone: any) => {
@@ -174,12 +179,15 @@ const handleDeleteZone = async (zone: any) => {
 }
 
 const handleCreateRule = async () => {
+  submitting.value = true
   try {
     await createFirewallRule({ ...ruleForm, device_id: deviceId.value, enabled: true })
     ElMessage.success('规则已创建')
     showRuleDialog.value = false
+    Object.assign(ruleForm, { name: '', src: '', dest: '', proto: 'tcp', src_ip: '', dest_ip: '', dest_port: '', target: 'ACCEPT', position: 0 })
     fetchAll()
-  } catch { ElMessage.error('创建规则失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '创建规则失败')) }
+  finally { submitting.value = false }
 }
 
 const handleDeleteRule = async (rule: any) => {
@@ -194,10 +202,12 @@ const handleDeleteRule = async (rule: any) => {
 const handleApply = async () => {
   if (!deviceId.value) return
   await ElMessageBox.confirm('确认将当前防火墙配置应用到设备？', '应用确认', { type: 'warning' })
+  applying.value = true
   try {
     await applyFirewall(deviceId.value)
     ElMessage.success('防火墙配置已下发')
-  } catch { ElMessage.error('防火墙配置下发失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '防火墙配置下发失败')) }
+  finally { applying.value = false }
 }
 
 onMounted(async () => {

@@ -206,7 +206,10 @@ func (h *NetworkHandler) ApplyMWAN(c *gin.Context) {
 	uci := generateMWANUCI(wans, policies, rules)
 
 	record := model.DeviceConfig{DeviceID: device.ID, Content: uci, Status: "pending"}
-	h.DB.Create(&record)
+	if err := h.DB.Create(&record).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save config record"})
+		return
+	}
 	if err := publishConfig(h.MQTT, device.MAC, record.ID, uci); err != nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "MQTT publish failed: " + err.Error(), "config_id": record.ID})
 		return
@@ -494,7 +497,10 @@ func (h *NetworkHandler) ApplyDHCP(c *gin.Context) {
 	uci := generateDHCPUCI(pools, leases)
 
 	record := model.DeviceConfig{DeviceID: device.ID, Content: uci, Status: "pending"}
-	h.DB.Create(&record)
+	if err := h.DB.Create(&record).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save config record"})
+		return
+	}
 	if err := publishConfig(h.MQTT, device.MAC, record.ID, uci); err != nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "MQTT publish failed: " + err.Error(), "config_id": record.ID})
 		return
@@ -551,7 +557,10 @@ func (h *NetworkHandler) ApplyVLAN(c *gin.Context) {
 	uci := generateVLANUCI(vlans)
 
 	record := model.DeviceConfig{DeviceID: device.ID, Content: uci, Status: "pending"}
-	h.DB.Create(&record)
+	if err := h.DB.Create(&record).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save config record"})
+		return
+	}
 	if err := publishConfig(h.MQTT, device.MAC, record.ID, uci); err != nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "MQTT publish failed: " + err.Error(), "config_id": record.ID})
 		return

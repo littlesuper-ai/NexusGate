@@ -147,11 +147,38 @@ func (h *DeviceHandler) Update(c *gin.Context) {
 }
 
 func (h *DeviceHandler) Delete(c *gin.Context) {
-	if err := h.DB.Delete(&model.Device{}, c.Param("id")).Error; err != nil {
+	deviceID := c.Param("id")
+	err := h.DB.Transaction(func(tx *gorm.DB) error {
+		// Cascade delete all device-related records
+		for _, m := range []any{
+			&model.DeviceMetrics{}, &model.DeviceConfig{}, &model.Alert{},
+			&model.FirewallZone{}, &model.FirewallRule{},
+			&model.WANInterface{}, &model.MWANPolicy{}, &model.MWANRule{},
+			&model.DHCPPool{}, &model.StaticLease{}, &model.VLAN{},
+			&model.FirmwareUpgrade{},
+		} {
+			if err := tx.Where("device_id = ?", deviceID).Delete(m).Error; err != nil {
+				return err
+			}
+		}
+		// VPN: delete peers for this device's interfaces, then interfaces
+		var ifaceIDs []uint
+		tx.Model(&model.WireGuardInterface{}).Where("device_id = ?", deviceID).Pluck("id", &ifaceIDs)
+		if len(ifaceIDs) > 0 {
+			if err := tx.Where("interface_id IN ?", ifaceIDs).Delete(&model.WireGuardPeer{}).Error; err != nil {
+				return err
+			}
+		}
+		if err := tx.Where("device_id = ?", deviceID).Delete(&model.WireGuardInterface{}).Error; err != nil {
+			return err
+		}
+		return tx.Delete(&model.Device{}, deviceID).Error
+	})
+	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	writeAudit(h.DB, c, "delete", "device", fmt.Sprintf("deleted device id=%s", c.Param("id")))
+	writeAudit(h.DB, c, "delete", "device", fmt.Sprintf("deleted device id=%s and related records", deviceID))
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 }
 
@@ -168,7 +195,10 @@ func (h *DeviceHandler) Reboot(c *gin.Context) {
 	}
 	topic := fmt.Sprintf("nexusgate/devices/%s/command", device.MAC)
 	token := h.MQTT.Publish(topic, 1, false, `{"action":"reboot"}`)
-	token.Wait()
+	if !token.WaitTimeout(mqttPublishTimeout) {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "MQTT publish timed out"})
+		return
+	}
 	if err := token.Error(); err != nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "MQTT publish failed: " + err.Error()})
 		return
@@ -224,9 +254,36 @@ func (h *DeviceHandler) BulkDelete(c *gin.Context) {
 		return
 	}
 
-	result := h.DB.Where("id IN ?", req.IDs).Delete(&model.Device{})
-	writeAudit(h.DB, c, "bulk_delete", "device", fmt.Sprintf("bulk deleted %d device(s)", result.RowsAffected))
-	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("deleted %d device(s)", result.RowsAffected)})
+	err := h.DB.Transaction(func(tx *gorm.DB) error {
+		for _, m := range []any{
+			&model.DeviceMetrics{}, &model.DeviceConfig{}, &model.Alert{},
+			&model.FirewallZone{}, &model.FirewallRule{},
+			&model.WANInterface{}, &model.MWANPolicy{}, &model.MWANRule{},
+			&model.DHCPPool{}, &model.StaticLease{}, &model.VLAN{},
+			&model.FirmwareUpgrade{},
+		} {
+			if err := tx.Where("device_id IN ?", req.IDs).Delete(m).Error; err != nil {
+				return err
+			}
+		}
+		var ifaceIDs []uint
+		tx.Model(&model.WireGuardInterface{}).Where("device_id IN ?", req.IDs).Pluck("id", &ifaceIDs)
+		if len(ifaceIDs) > 0 {
+			if err := tx.Where("interface_id IN ?", ifaceIDs).Delete(&model.WireGuardPeer{}).Error; err != nil {
+				return err
+			}
+		}
+		if err := tx.Where("device_id IN ?", req.IDs).Delete(&model.WireGuardInterface{}).Error; err != nil {
+			return err
+		}
+		return tx.Where("id IN ?", req.IDs).Delete(&model.Device{}).Error
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	writeAudit(h.DB, c, "bulk_delete", "device", fmt.Sprintf("bulk deleted device ids=%v", req.IDs))
+	c.JSON(http.StatusOK, gin.H{"message": fmt.Sprintf("deleted %d device(s)", len(req.IDs))})
 }
 
 // BulkReboot sends reboot command to multiple devices.
@@ -254,8 +311,7 @@ func (h *DeviceHandler) BulkReboot(c *gin.Context) {
 	for _, device := range devices {
 		topic := fmt.Sprintf("nexusgate/devices/%s/command", device.MAC)
 		token := h.MQTT.Publish(topic, 1, false, `{"action":"reboot"}`)
-		token.Wait()
-		if token.Error() == nil {
+		if token.WaitTimeout(mqttPublishTimeout) && token.Error() == nil {
 			count++
 		}
 	}

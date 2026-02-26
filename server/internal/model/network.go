@@ -10,8 +10,8 @@ import (
 
 type WANInterface struct {
 	ID          uint           `json:"id" gorm:"primaryKey"`
-	DeviceID    uint           `json:"device_id" gorm:"index;not null"`
-	Name        string         `json:"name" gorm:"not null"`        // wan1, wan2
+	DeviceID    uint           `json:"device_id" gorm:"uniqueIndex:idx_wan_device_name;not null"`
+	Name        string         `json:"name" gorm:"uniqueIndex:idx_wan_device_name;not null"`        // wan1, wan2
 	Interface   string         `json:"interface" gorm:"not null"`    // eth1, pppoe-wan
 	Enabled     bool           `json:"enabled" gorm:"default:true"`
 	Weight      int            `json:"weight" gorm:"default:1"`
@@ -27,8 +27,8 @@ type WANInterface struct {
 
 type MWANPolicy struct {
 	ID        uint           `json:"id" gorm:"primaryKey"`
-	DeviceID  uint           `json:"device_id" gorm:"index;not null"`
-	Name      string         `json:"name" gorm:"not null"`
+	DeviceID  uint           `json:"device_id" gorm:"uniqueIndex:idx_mwan_policy_device_name;not null"`
+	Name      string         `json:"name" gorm:"uniqueIndex:idx_mwan_policy_device_name;not null"`
 	Members   string         `json:"members"`     // JSON: [{"iface":"wan1","metric":1,"weight":1}]
 	LastResort string        `json:"last_resort" gorm:"default:default"` // default, unreachable
 	CreatedAt time.Time      `json:"created_at"`
@@ -38,8 +38,8 @@ type MWANPolicy struct {
 
 type MWANRule struct {
 	ID        uint           `json:"id" gorm:"primaryKey"`
-	DeviceID  uint           `json:"device_id" gorm:"index;not null"`
-	Name      string         `json:"name" gorm:"not null"`
+	DeviceID  uint           `json:"device_id" gorm:"uniqueIndex:idx_mwan_rule_device_name;not null"`
+	Name      string         `json:"name" gorm:"uniqueIndex:idx_mwan_rule_device_name;not null"`
 	SrcIP     string         `json:"src_ip"`
 	DestIP    string         `json:"dest_ip"`
 	Proto     string         `json:"proto"`       // tcp, udp, all
@@ -57,8 +57,8 @@ type MWANRule struct {
 
 type DHCPPool struct {
 	ID        uint           `json:"id" gorm:"primaryKey"`
-	DeviceID  uint           `json:"device_id" gorm:"index;not null"`
-	Interface string         `json:"interface" gorm:"not null"` // lan, guest, iot
+	DeviceID  uint           `json:"device_id" gorm:"uniqueIndex:idx_dhcp_device_iface;not null"`
+	Interface string         `json:"interface" gorm:"uniqueIndex:idx_dhcp_device_iface;not null"` // lan, guest, iot
 	Start     int            `json:"start" gorm:"default:100"`
 	Limit     int            `json:"limit" gorm:"default:150"`
 	LeaseTime string         `json:"lease_time" gorm:"default:12h"`
@@ -72,9 +72,9 @@ type DHCPPool struct {
 
 type StaticLease struct {
 	ID        uint           `json:"id" gorm:"primaryKey"`
-	DeviceID  uint           `json:"device_id" gorm:"index;not null"`
+	DeviceID  uint           `json:"device_id" gorm:"uniqueIndex:idx_lease_device_mac;not null"`
 	Name      string         `json:"name" gorm:"not null"`
-	MAC       string         `json:"mac" gorm:"not null"`
+	MAC       string         `json:"mac" gorm:"uniqueIndex:idx_lease_device_mac;not null"`
 	IP        string         `json:"ip" gorm:"not null"`
 	CreatedAt time.Time      `json:"created_at"`
 	DeletedAt gorm.DeletedAt `json:"-" gorm:"index"`
@@ -84,8 +84,8 @@ type StaticLease struct {
 
 type VLAN struct {
 	ID        uint           `json:"id" gorm:"primaryKey"`
-	DeviceID  uint           `json:"device_id" gorm:"index;not null"`
-	VID       int            `json:"vid" gorm:"not null"`           // 802.1Q VLAN ID
+	DeviceID  uint           `json:"device_id" gorm:"uniqueIndex:idx_vlan_device_vid;not null"`
+	VID       int            `json:"vid" gorm:"uniqueIndex:idx_vlan_device_vid;not null"`           // 802.1Q VLAN ID
 	Name      string         `json:"name" gorm:"not null"`          // office, server, guest
 	Interface string         `json:"interface"`                      // br-lan.10
 	IPAddr    string         `json:"ip_addr"`                        // 10.0.10.1

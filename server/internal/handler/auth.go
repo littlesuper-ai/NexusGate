@@ -163,7 +163,10 @@ func (h *AuthHandler) ChangePassword(c *gin.Context) {
 		return
 	}
 
-	h.DB.Model(&user).Update("password", string(hashed))
+	if err := h.DB.Model(&user).Update("password", string(hashed)).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update password"})
+		return
+	}
 	writeAudit(h.DB, c, "change_password", "user", fmt.Sprintf("user %s changed their password", user.Username))
 	c.JSON(http.StatusOK, gin.H{"message": "password changed"})
 }
@@ -253,7 +256,10 @@ func (h *AuthHandler) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	h.DB.Model(&user).Updates(updates)
+	if err := h.DB.Model(&user).Updates(updates).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update user"})
+		return
+	}
 	writeAudit(h.DB, c, "update", "user", fmt.Sprintf("updated user %s (id=%d)", user.Username, user.ID))
 	c.JSON(http.StatusOK, user)
 }

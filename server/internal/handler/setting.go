@@ -20,7 +20,10 @@ func (h *SettingHandler) List(c *gin.Context) {
 	if cat := c.Query("category"); cat != "" {
 		query = query.Where("category = ?", cat)
 	}
-	query.Order("category, key").Limit(500).Find(&items)
+	if err := query.Order("category, key").Limit(500).Find(&items).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to query settings"})
+		return
+	}
 	c.JSON(http.StatusOK, items)
 }
 
@@ -48,10 +51,13 @@ func (h *SettingHandler) Upsert(c *gin.Context) {
 		req.Category = "general"
 	}
 	item := model.SystemSetting{Key: req.Key, Value: req.Value, Category: req.Category}
-	h.DB.Clauses(clause.OnConflict{
+	if err := h.DB.Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "key"}},
 		DoUpdates: clause.AssignmentColumns([]string{"value", "category", "updated_at"}),
-	}).Create(&item)
+	}).Create(&item).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save setting"})
+		return
+	}
 	writeAudit(h.DB, c, "upsert", "setting", fmt.Sprintf("set setting %s=%s", req.Key, req.Value))
 	c.JSON(http.StatusOK, item)
 }
@@ -71,17 +77,28 @@ func (h *SettingHandler) BatchUpsert(c *gin.Context) {
 			item.Category = "general"
 		}
 		s := model.SystemSetting{Key: item.Key, Value: item.Value, Category: item.Category}
-		h.DB.Clauses(clause.OnConflict{
+		if err := h.DB.Clauses(clause.OnConflict{
 			Columns:   []clause.Column{{Name: "key"}},
 			DoUpdates: clause.AssignmentColumns([]string{"value", "category", "updated_at"}),
-		}).Create(&s)
+		}).Create(&s).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to save setting %s", item.Key)})
+			return
+		}
 	}
 	writeAudit(h.DB, c, "batch_upsert", "setting", fmt.Sprintf("batch updated %d settings", len(items)))
 	c.JSON(http.StatusOK, gin.H{"message": "saved"})
 }
 
 func (h *SettingHandler) Delete(c *gin.Context) {
-	h.DB.Where("key = ?", c.Param("key")).Delete(&model.SystemSetting{})
+	result := h.DB.Where("key = ?", c.Param("key")).Delete(&model.SystemSetting{})
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
+		return
+	}
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "setting not found"})
+		return
+	}
 	writeAudit(h.DB, c, "delete", "setting", fmt.Sprintf("deleted setting %s", c.Param("key")))
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 }
