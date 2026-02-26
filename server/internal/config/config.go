@@ -3,18 +3,20 @@ package config
 import (
 	"fmt"
 	"os"
+	"strings"
 )
 
 type Config struct {
-	ListenAddr string
-	DBHost     string
-	DBPort     string
-	DBUser     string
-	DBPassword string
-	DBName     string
-	DBSSLMode  string
-	MQTTBroker string
-	JWTSecret  string
+	ListenAddr  string
+	DBHost      string
+	DBPort      string
+	DBUser      string
+	DBPassword  string
+	DBName      string
+	DBSSLMode   string
+	MQTTBroker  string
+	JWTSecret   string
+	CORSOrigins []string
 }
 
 func Load() (*Config, error) {
@@ -28,6 +30,16 @@ func Load() (*Config, error) {
 		DBSSLMode:  getEnv("DB_SSLMODE", "disable"),
 		MQTTBroker: getEnv("MQTT_BROKER", "tcp://localhost:1883"),
 		JWTSecret:  getEnv("JWT_SECRET", ""),
+	}
+
+	// Parse CORS origins (comma-separated)
+	if origins := getEnv("CORS_ORIGINS", ""); origins != "" {
+		for _, o := range strings.Split(origins, ",") {
+			o = strings.TrimSpace(o)
+			if o != "" {
+				cfg.CORSOrigins = append(cfg.CORSOrigins, o)
+			}
+		}
 	}
 
 	if cfg.JWTSecret == "" {

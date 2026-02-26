@@ -107,10 +107,12 @@ const router = createRouter({
       path: '/settings',
       name: 'Settings',
       component: () => import('../views/Settings.vue'),
-      meta: { title: '系统设置' },
+      meta: { title: '系统设置', minRole: 'operator' },
     },
   ],
 })
+
+const roleLevel: Record<string, number> = { viewer: 1, operator: 2, admin: 3 }
 
 router.beforeEach((to, _from, next) => {
   if (to.meta.requiresAuth === false) {
@@ -122,7 +124,14 @@ router.beforeEach((to, _from, next) => {
     next('/login')
     return
   }
-  if (to.meta.requiresAdmin && localStorage.getItem('role') !== 'admin') {
+  const userRole = localStorage.getItem('role') || 'viewer'
+  if (to.meta.requiresAdmin && userRole !== 'admin') {
+    next('/dashboard')
+    return
+  }
+  // Role-based access: minRole meta specifies minimum required role
+  const minRole = to.meta.minRole as string | undefined
+  if (minRole && (roleLevel[userRole] || 0) < (roleLevel[minRole] || 0)) {
     next('/dashboard')
     return
   }

@@ -1,7 +1,13 @@
 package main
 
 import (
+	"context"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/nexusgate/nexusgate/internal/config"
 	"github.com/nexusgate/nexusgate/internal/handler"
@@ -48,8 +54,42 @@ func main() {
 
 	r := handler.SetupRouter(db, mqttClient, cfg, wsHub)
 
-	log.Printf("NexusGate server starting on %s", cfg.ListenAddr)
-	if err := r.Run(cfg.ListenAddr); err != nil {
-		log.Fatalf("failed to start server: %v", err)
+	srv := &http.Server{
+		Addr:    cfg.ListenAddr,
+		Handler: r,
 	}
+
+	// Start server in goroutine
+	go func() {
+		log.Printf("NexusGate server starting on %s", cfg.ListenAddr)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatalf("failed to start server: %v", err)
+		}
+	}()
+
+	// Wait for interrupt signal
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+	log.Println("shutting down server...")
+
+	// Give outstanding requests 10 seconds to complete
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf("server forced to shutdown: %v", err)
+	}
+
+	// Close MQTT connection
+	if mqttClient != nil && mqttClient.IsConnected() {
+		mqttClient.Disconnect(1000)
+	}
+
+	// Close database connection
+	if sqlDB, err := db.DB(); err == nil {
+		sqlDB.Close()
+	}
+
+	log.Println("server exited")
 }

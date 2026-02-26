@@ -35,6 +35,26 @@ func (h *FirewallHandler) CreateZone(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if err := validateName("name", zone.Name); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateOneOf("input", zone.Input, firewallTargets); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateOneOf("output", zone.Output, firewallTargets); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateOneOf("forward", zone.Forward, firewallTargets); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateUCIValue("networks", zone.Networks); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	if err := h.DB.Create(&zone).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -86,6 +106,27 @@ func (h *FirewallHandler) ListRules(c *gin.Context) {
 func (h *FirewallHandler) CreateRule(c *gin.Context) {
 	var rule model.FirewallRule
 	if err := c.ShouldBindJSON(&rule); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	for _, v := range []struct{ f, val string }{
+		{"name", rule.Name}, {"src", rule.Src}, {"dest", rule.Dest},
+		{"src_ip", rule.SrcIP}, {"dest_ip", rule.DestIP},
+	} {
+		if err := validateUCIValue(v.f, v.val); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+	}
+	if err := validateOneOf("target", rule.Target, firewallTargets); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateOneOf("proto", rule.Proto, firewallProtos); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validatePort("dest_port", rule.DestPort); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}

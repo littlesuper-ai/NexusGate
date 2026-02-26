@@ -13,11 +13,20 @@ import (
 func SetupRouter(db *gorm.DB, mqttClient mqtt.Client, cfg *config.Config, wsHub *ws.Hub) *gin.Engine {
 	r := gin.Default()
 
+	// Request tracing
+	r.Use(middleware.RequestID())
+
+	// CORS — restrict origins in production via CORS_ORIGINS env var
+	corsOrigins := cfg.CORSOrigins
+	if len(corsOrigins) == 0 {
+		corsOrigins = []string{"*"}
+	}
+	allowCreds := corsOrigins[0] != "*"
 	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"*"},
+		AllowOrigins:     corsOrigins,
 		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "PATCH"},
-		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
-		AllowCredentials: true,
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization", "X-Request-ID"},
+		AllowCredentials: allowCreds,
 	}))
 
 	// Rate limiter for auth endpoints: 10 req/min burst 5
@@ -36,8 +45,8 @@ func SetupRouter(db *gorm.DB, mqttClient mqtt.Client, cfg *config.Config, wsHub 
 	// Health check (no auth — used by load balancers and Docker)
 	r.GET("/health", HealthCheck(db, mqttClient))
 
-	// Prometheus metrics (no auth — scraped by Prometheus)
-	r.GET("/metrics", RegisterMetrics(db, wsHub))
+	// Prometheus metrics (protected by JWT or accessible from localhost)
+	r.GET("/metrics", middleware.MetricsAuth(cfg.JWTSecret), RegisterMetrics(db, wsHub))
 
 	// WebSocket endpoint (no JWT for WS upgrade, auth via query param)
 	r.GET("/ws", wsHub.HandleWS)

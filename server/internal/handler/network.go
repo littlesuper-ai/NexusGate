@@ -42,6 +42,14 @@ func (h *NetworkHandler) CreateWANInterface(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if err := validateName("name", item.Name); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateUCIValue("track_ips", item.TrackIPs); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	if err := h.DB.Create(&item).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -286,6 +294,18 @@ func (h *NetworkHandler) CreateDHCPPool(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if err := validateUCIValue("interface", item.Interface); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateUCIValue("dns", item.DNS); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateIP("gateway", item.Gateway); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	if err := h.DB.Create(&item).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -334,6 +354,18 @@ func (h *NetworkHandler) ListStaticLeases(c *gin.Context) {
 func (h *NetworkHandler) CreateStaticLease(c *gin.Context) {
 	var item model.StaticLease
 	if err := c.ShouldBindJSON(&item); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateMAC("mac", item.MAC); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateIP("ip", item.IP); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateUCIValue("name", item.Name); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
@@ -387,6 +419,18 @@ func (h *NetworkHandler) ListVLANs(c *gin.Context) {
 func (h *NetworkHandler) CreateVLAN(c *gin.Context) {
 	var item model.VLAN
 	if err := c.ShouldBindJSON(&item); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if item.VID < 1 || item.VID > 4094 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "VLAN ID must be 1-4094"})
+		return
+	}
+	if err := validateUCIValue("name", item.Name); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateIP("ip_addr", item.IPAddr); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
