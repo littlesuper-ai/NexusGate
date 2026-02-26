@@ -15,7 +15,7 @@
       </el-col>
     </el-row>
 
-    <div v-if="metrics.length > 0">
+    <div v-loading="loading" v-if="metrics.length > 0 || loading">
       <el-row :gutter="20">
         <el-col :span="12">
           <el-card>
@@ -47,14 +47,15 @@
       </el-row>
     </div>
 
-    <el-empty v-else-if="deviceId" description="暂无监控数据" />
+    <el-empty v-else-if="deviceId && !loading" description="暂无监控数据" />
     <el-empty v-else description="请选择一台设备查看监控数据" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick, markRaw, watch } from 'vue'
+import { ref, onMounted, onUnmounted, nextTick, markRaw, watch } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
 import { getDevices, getDeviceMetrics } from '../api'
 import { useWebSocket } from '../composables/useWebSocket'
@@ -62,6 +63,7 @@ import { useWebSocket } from '../composables/useWebSocket'
 const devices = ref<any[]>([])
 const deviceId = ref<number | null>(null)
 const metrics = ref<any[]>([])
+const loading = ref(false)
 const { connected: wsConnected, on: wsOn } = useWebSocket()
 
 // Handle real-time metrics updates via WebSocket
@@ -97,10 +99,17 @@ let connChart: echarts.ECharts | null = null
 
 const fetchMetrics = async () => {
   if (!deviceId.value) return
-  const { data } = await getDeviceMetrics(deviceId.value)
-  metrics.value = data
-  await nextTick()
-  renderCharts()
+  loading.value = true
+  try {
+    const { data } = await getDeviceMetrics(deviceId.value)
+    metrics.value = data
+    await nextTick()
+    renderCharts()
+  } catch {
+    ElMessage.error('获取监控数据失败')
+  } finally {
+    loading.value = false
+  }
 }
 
 const renderCharts = () => {
@@ -167,7 +176,22 @@ const renderCharts = () => {
 }
 
 onMounted(async () => {
-  const { data } = await getDevices()
-  devices.value = data
+  try {
+    const { data } = await getDevices()
+    devices.value = data
+  } catch {
+    ElMessage.error('获取设备列表失败')
+  }
+})
+
+onUnmounted(() => {
+  cpuChart?.dispose()
+  memChart?.dispose()
+  netChart?.dispose()
+  connChart?.dispose()
+  cpuChart = null
+  memChart = null
+  netChart = null
+  connChart = null
 })
 </script>

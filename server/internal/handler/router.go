@@ -56,6 +56,7 @@ func SetupRouter(db *gorm.DB, mqttClient mqtt.Client, cfg *config.Config, wsHub 
 	{
 		// Auth self-service (all roles)
 		api.GET("/auth/me", authHandler.Me)
+		api.POST("/auth/refresh", authHandler.RefreshToken)
 		api.PUT("/auth/password", authHandler.ChangePassword)
 
 		// Read-only routes (viewer, operator, admin)

@@ -70,6 +70,50 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	})
 }
 
+// RefreshToken issues a new JWT if the current token is still valid.
+func (h *AuthHandler) RefreshToken(c *gin.Context) {
+	userID, _ := c.Get("user_id")
+	username, _ := c.Get("username")
+	role, _ := c.Get("role")
+
+	uid, _ := userID.(uint)
+	uname, _ := username.(string)
+	urole, _ := role.(string)
+
+	// Verify user still exists and is active
+	var user model.User
+	if err := h.DB.First(&user, uid).Error; err != nil {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "user no longer exists"})
+		return
+	}
+
+	claims := &middleware.Claims{
+		UserID:   uid,
+		Username: uname,
+		Role:     urole,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	tokenStr, err := token.SignedString([]byte(h.JWTSecret))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to generate token"})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"token": tokenStr,
+		"user": gin.H{
+			"id":       user.ID,
+			"username": user.Username,
+			"role":     user.Role,
+		},
+	})
+}
+
 // Me returns the current authenticated user's info.
 func (h *AuthHandler) Me(c *gin.Context) {
 	userID, _ := c.Get("user_id")

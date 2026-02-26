@@ -8,7 +8,7 @@
         <el-radio-button value="vpn">VPN</el-radio-button>
         <el-radio-button value="qos">QoS</el-radio-button>
       </el-radio-group>
-      <el-button type="primary" @click="showCreate = true">新建模板</el-button>
+      <el-button type="primary" @click="openCreate">新建模板</el-button>
     </el-row>
 
     <el-table :data="templates" v-loading="loading" stripe>
@@ -76,6 +76,12 @@ const fetchTemplates = async () => {
   }
 }
 
+const openCreate = () => {
+  editingId.value = null
+  Object.assign(form, { name: '', category: '', description: '', content: '' })
+  showCreate.value = true
+}
+
 const editTemplate = (tpl: any) => {
   editingId.value = tpl.id
   Object.assign(form, { name: tpl.name, category: tpl.category, description: tpl.description, content: tpl.content })
@@ -83,15 +89,31 @@ const editTemplate = (tpl: any) => {
 }
 
 const handleSave = async () => {
-  if (editingId.value) {
-    await updateTemplate(editingId.value, { ...form })
-  } else {
-    await createTemplate({ ...form })
+  if (!form.name.trim()) {
+    ElMessage.warning('请输入模板名称')
+    return
   }
-  ElMessage.success('已保存')
-  showCreate.value = false
-  editingId.value = null
-  fetchTemplates()
+  if (!form.category) {
+    ElMessage.warning('请选择模板分类')
+    return
+  }
+  if (!form.content.trim()) {
+    ElMessage.warning('请输入配置内容')
+    return
+  }
+  try {
+    if (editingId.value) {
+      await updateTemplate(editingId.value, { ...form })
+    } else {
+      await createTemplate({ ...form })
+    }
+    ElMessage.success('已保存')
+    showCreate.value = false
+    editingId.value = null
+    fetchTemplates()
+  } catch {
+    ElMessage.error('保存失败')
+  }
 }
 
 const handleDelete = async (tpl: any) => {

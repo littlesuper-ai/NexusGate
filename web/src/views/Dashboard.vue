@@ -101,7 +101,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import { getDashboardSummary, getDevices, getTemplates, getAuditLogs, getAlertSummary } from '../api'
 import { useWebSocket } from '../composables/useWebSocket'
 
@@ -113,15 +113,23 @@ const auditLogs = ref<any[]>([])
 
 const { connected: wsConnected, on: wsOn } = useWebSocket()
 
-// Refresh summary counts from API
-const refreshSummary = async () => {
-  const [s, al] = await Promise.all([
-    getDashboardSummary().catch(() => ({ data: summary.value })),
-    getAlertSummary().catch(() => ({ data: alertSummary.value })),
-  ])
-  summary.value = s.data
-  alertSummary.value = al.data
+// Debounced summary refresh — coalesces rapid WebSocket events into a single API call
+let refreshTimer: ReturnType<typeof setTimeout> | null = null
+const debouncedRefreshSummary = () => {
+  if (refreshTimer) clearTimeout(refreshTimer)
+  refreshTimer = setTimeout(async () => {
+    const [s, al] = await Promise.all([
+      getDashboardSummary().catch(() => ({ data: summary.value })),
+      getAlertSummary().catch(() => ({ data: alertSummary.value })),
+    ])
+    summary.value = s.data
+    alertSummary.value = al.data
+  }, 2000)
 }
+
+onUnmounted(() => {
+  if (refreshTimer) clearTimeout(refreshTimer)
+})
 
 // Handle real-time device status updates
 wsOn('device_status', (data: any) => {
@@ -132,13 +140,12 @@ wsOn('device_status', (data: any) => {
     devices.value[idx].status = data.status
     devices.value[idx].uptime_secs = data.uptime_secs
   }
-  // Refresh summary when device status changes
-  refreshSummary()
+  debouncedRefreshSummary()
 })
 
 // Handle real-time alert events
 wsOn('alert', () => {
-  refreshSummary()
+  debouncedRefreshSummary()
 })
 
 const formatTime = (t: string) => {

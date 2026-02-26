@@ -5,6 +5,44 @@ const api = axios.create({
   timeout: 15000,
 })
 
+// Parse JWT expiration without external library
+function getTokenExp(token: string): number | null {
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1]))
+    return payload.exp || null
+  } catch { return null }
+}
+
+// Proactive token refresh: refresh when <20% lifetime remains
+let refreshTimer: ReturnType<typeof setTimeout> | null = null
+
+function scheduleTokenRefresh() {
+  if (refreshTimer) clearTimeout(refreshTimer)
+  const token = localStorage.getItem('token')
+  if (!token) return
+  const exp = getTokenExp(token)
+  if (!exp) return
+  const now = Math.floor(Date.now() / 1000)
+  const remaining = exp - now
+  // Refresh when 80% of lifetime has passed (at 20% remaining)
+  const refreshAt = Math.max(remaining * 0.8, 60) * 1000
+  refreshTimer = setTimeout(async () => {
+    try {
+      const { data } = await api.post('/auth/refresh')
+      localStorage.setItem('token', data.token)
+      if (data.user) {
+        localStorage.setItem('role', data.user.role)
+      }
+      scheduleTokenRefresh()
+    } catch {
+      // Refresh failed — token may have expired, let 401 interceptor handle it
+    }
+  }, refreshAt)
+}
+
+// Start refresh timer on load if token exists
+scheduleTokenRefresh()
+
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('token')
   if (token) {
@@ -17,6 +55,7 @@ api.interceptors.response.use(
   (res) => res,
   (err) => {
     if (err.response?.status === 401) {
+      if (refreshTimer) clearTimeout(refreshTimer)
       localStorage.removeItem('token')
       window.location.href = '/login'
     } else if (err.response?.status === 403) {
@@ -30,7 +69,16 @@ api.interceptors.response.use(
 
 // Auth
 export const login = (username: string, password: string) =>
-  api.post('/auth/login', { username, password })
+  api.post('/auth/login', { username, password }).then((res) => {
+    // Schedule refresh after successful login
+    if (res.data.token) {
+      localStorage.setItem('token', res.data.token)
+      scheduleTokenRefresh()
+    }
+    return res
+  })
+
+export const refreshToken = () => api.post('/auth/refresh')
 
 export const getMe = () => api.get('/auth/me')
 

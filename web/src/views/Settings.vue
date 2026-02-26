@@ -166,9 +166,10 @@ const loadAll = async () => {
     const { data } = await getSettings()
     for (const item of data) {
       if (item.key in form) {
-        // Convert types
+        // Convert types with NaN protection
         if (typeof form[item.key] === 'number') {
-          form[item.key] = Number(item.value)
+          const n = Number(item.value)
+          if (!isNaN(n)) form[item.key] = n
         } else if (typeof form[item.key] === 'boolean') {
           form[item.key] = item.value === 'true'
         } else {
@@ -181,6 +182,18 @@ const loadAll = async () => {
 }
 
 const saveSettings = async () => {
+  // Validate SMTP fields when email notification is selected
+  if (form.alert_notify_method === 'email') {
+    if (!form.smtp_host || !form.smtp_from || !form.smtp_to) {
+      ElMessage.warning('选择邮件通知时，SMTP 服务器、发件人和收件人为必填项')
+      return
+    }
+  }
+  if (form.alert_notify_method === 'webhook' && !form.alert_webhook_url) {
+    ElMessage.warning('选择 Webhook 通知时，URL 为必填项')
+    return
+  }
+
   saving.value = true
   try {
     const items: { key: string; value: string; category: string }[] = []

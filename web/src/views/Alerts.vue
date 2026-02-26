@@ -39,7 +39,7 @@
     </el-card>
 
     <!-- Alert table -->
-    <el-table :data="alerts" stripe border size="small">
+    <el-table :data="alerts" v-loading="loading" stripe border size="small">
       <el-table-column prop="id" label="ID" width="60" />
       <el-table-column prop="device_name" label="设备" width="140" />
       <el-table-column prop="metric" label="指标" width="100">
@@ -110,6 +110,7 @@ const filter = reactive({ resolved: 'false', severity: '' })
 const page = ref(1)
 const pageSize = ref(50)
 const total = ref(0)
+const loading = ref(false)
 
 const { on: wsOn } = useWebSocket()
 
@@ -119,18 +120,25 @@ const metricLabel = (m: string) => {
 }
 
 const fetchAlerts = async () => {
-  const params: Record<string, string | number> = { page: page.value, page_size: pageSize.value }
-  if (filter.resolved) params.resolved = filter.resolved
-  if (filter.severity) params.severity = filter.severity
-  const [alertRes, sumRes] = await Promise.all([getAlerts(params as any), getAlertSummary()])
-  if (alertRes.data.data) {
-    alerts.value = alertRes.data.data
-    total.value = alertRes.data.total
-  } else {
-    alerts.value = alertRes.data
-    total.value = alertRes.data.length
+  loading.value = true
+  try {
+    const params: Record<string, string | number> = { page: page.value, page_size: pageSize.value }
+    if (filter.resolved) params.resolved = filter.resolved
+    if (filter.severity) params.severity = filter.severity
+    const [alertRes, sumRes] = await Promise.all([getAlerts(params as any), getAlertSummary()])
+    if (alertRes.data.data) {
+      alerts.value = alertRes.data.data
+      total.value = alertRes.data.total
+    } else {
+      alerts.value = alertRes.data
+      total.value = alertRes.data.length
+    }
+    summary.value = sumRes.data
+  } catch {
+    ElMessage.error('获取告警数据失败')
+  } finally {
+    loading.value = false
   }
-  summary.value = sumRes.data
 }
 
 const handleResolve = async (id: number) => {
