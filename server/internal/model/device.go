@@ -35,16 +35,16 @@ type Device struct {
 }
 
 type DeviceMetrics struct {
-	ID         uint      `json:"id" gorm:"primaryKey"`
-	DeviceID   uint      `json:"device_id" gorm:"index;not null"`
-	CPUUsage   float64   `json:"cpu_usage"`
-	MemUsage   float64   `json:"mem_usage"`
-	MemTotal   int64     `json:"mem_total"`
-	MemFree    int64     `json:"mem_free"`
-	RxBytes    int64     `json:"rx_bytes"`
-	TxBytes    int64     `json:"tx_bytes"`
-	Conntrack  int       `json:"conntrack"`
-	UptimeSecs int64     `json:"uptime_secs"`
-	LoadAvg    string    `json:"load_avg"`
-	CollectedAt time.Time `json:"collected_at"`
+	ID          uint      `json:"id" gorm:"primaryKey"`
+	DeviceID    uint      `json:"device_id" gorm:"index:idx_metrics_device_time;not null"`
+	CPUUsage    float64   `json:"cpu_usage"`
+	MemUsage    float64   `json:"mem_usage"`
+	MemTotal    int64     `json:"mem_total"`
+	MemFree     int64     `json:"mem_free"`
+	RxBytes     int64     `json:"rx_bytes"`
+	TxBytes     int64     `json:"tx_bytes"`
+	Conntrack   int       `json:"conntrack"`
+	UptimeSecs  int64     `json:"uptime_secs"`
+	LoadAvg     string    `json:"load_avg"`
+	CollectedAt time.Time `json:"collected_at" gorm:"index:idx_metrics_device_time;index:idx_metrics_collected"`
 }

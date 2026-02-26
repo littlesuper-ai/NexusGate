@@ -13,13 +13,17 @@ const handlers = new Map<string, Set<(data: any) => void>>()
 let ws: WebSocket | null = null
 let reconnectTimer: ReturnType<typeof setTimeout> | null = null
 let refCount = 0
+let reconnectAttempts = 0
+const MAX_RECONNECT_ATTEMPTS = 30
+const BASE_RECONNECT_DELAY = 2000
 
 function connect() {
   if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) return
 
   const token = localStorage.getItem('token')
   if (!token) {
-    reconnectTimer = setTimeout(connect, 3000)
+    const delay = Math.min(BASE_RECONNECT_DELAY * Math.pow(1.5, reconnectAttempts), 30000)
+    reconnectTimer = setTimeout(connect, delay)
     return
   }
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -28,6 +32,7 @@ function connect() {
 
   ws.onopen = () => {
     connected.value = true
+    reconnectAttempts = 0
     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
   }
 
@@ -43,8 +48,10 @@ function connect() {
   ws.onclose = () => {
     connected.value = false
     ws = null
-    if (refCount > 0) {
-      reconnectTimer = setTimeout(connect, 3000)
+    if (refCount > 0 && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
+      reconnectAttempts++
+      const delay = Math.min(BASE_RECONNECT_DELAY * Math.pow(1.5, reconnectAttempts), 30000)
+      reconnectTimer = setTimeout(connect, delay)
     }
   }
 

@@ -182,9 +182,8 @@ const handleDeleteRule = async (rule: any) => {
 const handleApply = async () => {
   if (!deviceId.value) return
   await ElMessageBox.confirm('确认将当前防火墙配置应用到设备？', '应用确认', { type: 'warning' })
-  const { data } = await applyFirewall(deviceId.value)
+  await applyFirewall(deviceId.value)
   ElMessage.success('防火墙配置已下发')
-  console.log('Generated UCI:', data.uci)
 }
 
 onMounted(async () => {

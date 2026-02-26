@@ -33,5 +33,5 @@ type AuditLog struct {
 	Resource  string    `json:"resource"`
 	Detail    string    `json:"detail" gorm:"type:text"`
 	IP        string    `json:"ip"`
-	CreatedAt time.Time `json:"created_at"`
+	CreatedAt time.Time `json:"created_at" gorm:"index"`
 }
