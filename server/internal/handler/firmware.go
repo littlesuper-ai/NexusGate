@@ -47,8 +47,15 @@ func (h *FirmwareHandler) Upload(c *gin.Context) {
 		return
 	}
 
+	// Sanitize filename to prevent path traversal
+	safeFilename := filepath.Base(file.Filename)
+	if safeFilename == "." || safeFilename == "/" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid filename"})
+		return
+	}
+
 	os.MkdirAll(firmwareDir, 0755)
-	savePath := filepath.Join(firmwareDir, file.Filename)
+	savePath := filepath.Join(firmwareDir, safeFilename)
 
 	if err := c.SaveUploadedFile(file, savePath); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save file"})
@@ -64,10 +71,10 @@ func (h *FirmwareHandler) Upload(c *gin.Context) {
 	fw := model.Firmware{
 		Version:     version,
 		Target:      target,
-		Filename:    file.Filename,
+		Filename:    safeFilename,
 		FileSize:    file.Size,
 		SHA256:      hash,
-		DownloadURL: fmt.Sprintf("/api/v1/firmware/download/%s", file.Filename),
+		DownloadURL: fmt.Sprintf("/api/v1/firmware/download/%s", safeFilename),
 		Changelog:   changelog,
 	}
 	if err := h.DB.Create(&fw).Error; err != nil {
@@ -75,7 +82,7 @@ func (h *FirmwareHandler) Upload(c *gin.Context) {
 		return
 	}
 
-	writeAudit(h.DB, c, "upload", "firmware", fmt.Sprintf("uploaded firmware %s v%s", file.Filename, version))
+	writeAudit(h.DB, c, "upload", "firmware", fmt.Sprintf("uploaded firmware %s v%s", safeFilename, version))
 	c.JSON(http.StatusCreated, fw)
 }
 

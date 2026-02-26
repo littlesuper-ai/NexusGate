@@ -109,6 +109,12 @@ const router = createRouter({
       component: () => import('../views/Settings.vue'),
       meta: { title: '系统设置', minRole: 'operator' },
     },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'NotFound',
+      component: () => import('../views/NotFound.vue'),
+      meta: { title: '404' },
+    },
   ],
 })
 

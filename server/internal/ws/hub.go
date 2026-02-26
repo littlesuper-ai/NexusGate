@@ -19,13 +19,13 @@ var upgrader = websocket.Upgrader{
 // Hub maintains connected WebSocket clients and broadcasts messages.
 type Hub struct {
 	mu        sync.RWMutex
-	clients   map[*websocket.Conn]struct{}
+	clients   map[*websocket.Conn]chan struct{} // value is done channel for ping goroutine
 	jwtSecret string
 }
 
 func NewHub(jwtSecret string) *Hub {
 	return &Hub{
-		clients:   make(map[*websocket.Conn]struct{}),
+		clients:   make(map[*websocket.Conn]chan struct{}),
 		jwtSecret: jwtSecret,
 	}
 }
@@ -55,8 +55,10 @@ func (h *Hub) HandleWS(c *gin.Context) {
 		return
 	}
 
+	done := make(chan struct{})
+
 	h.mu.Lock()
-	h.clients[conn] = struct{}{}
+	h.clients[conn] = done
 	h.mu.Unlock()
 
 	// Keep connection alive with ping/pong
@@ -66,19 +68,18 @@ func (h *Hub) HandleWS(c *gin.Context) {
 		return nil
 	})
 
-	// Ping ticker
+	// Ping ticker — exits cleanly via done channel
 	go func() {
 		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
-		for range ticker.C {
-			h.mu.RLock()
-			_, exists := h.clients[conn]
-			h.mu.RUnlock()
-			if !exists {
+		for {
+			select {
+			case <-done:
 				return
-			}
-			if err := conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(5*time.Second)); err != nil {
-				return
+			case <-ticker.C:
+				if err := conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(5*time.Second)); err != nil {
+					return
+				}
 			}
 		}
 	}()
@@ -93,6 +94,7 @@ func (h *Hub) HandleWS(c *gin.Context) {
 	h.mu.Lock()
 	delete(h.clients, conn)
 	h.mu.Unlock()
+	close(done)
 	conn.Close()
 }
 
@@ -108,19 +110,26 @@ func (h *Hub) Broadcast(msgType string, data any) {
 	}
 
 	h.mu.RLock()
-	var dead []*websocket.Conn
-	for conn := range h.clients {
+	type deadConn struct {
+		conn *websocket.Conn
+		done chan struct{}
+	}
+	var dead []deadConn
+	for conn, done := range h.clients {
 		if err := conn.WriteMessage(websocket.TextMessage, payload); err != nil {
 			conn.Close()
-			dead = append(dead, conn)
+			dead = append(dead, deadConn{conn, done})
 		}
 	}
 	h.mu.RUnlock()
 
 	if len(dead) > 0 {
 		h.mu.Lock()
-		for _, c := range dead {
-			delete(h.clients, c)
+		for _, d := range dead {
+			if _, exists := h.clients[d.conn]; exists {
+				delete(h.clients, d.conn)
+				close(d.done)
+			}
 		}
 		h.mu.Unlock()
 	}

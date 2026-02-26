@@ -55,13 +55,15 @@ func SubscribeDeviceStatus(client pahomqtt.Client, db *gorm.DB, hub *ws.Hub) {
 		}
 
 		now := time.Now()
-		db.Model(&model.Device{}).Where("mac = ?", payload.MAC).Updates(map[string]any{
+		if err := db.Model(&model.Device{}).Where("mac = ?", payload.MAC).Updates(map[string]any{
 			"status":       model.StatusOnline,
 			"cpu_usage":    payload.CPUUsage,
 			"mem_usage":    payload.MemUsage,
 			"uptime_secs":  payload.UptimeSecs,
 			"last_seen_at": &now,
-		})
+		}).Error; err != nil {
+			log.Printf("failed to update device status for MAC %s: %v", payload.MAC, err)
+		}
 
 		// Look up device ID for metrics record
 		var device model.Device
@@ -70,7 +72,7 @@ func SubscribeDeviceStatus(client pahomqtt.Client, db *gorm.DB, hub *ws.Hub) {
 			deviceID = device.ID
 		}
 
-		db.Create(&model.DeviceMetrics{
+		if err := db.Create(&model.DeviceMetrics{
 			DeviceID:    deviceID,
 			CPUUsage:    payload.CPUUsage,
 			MemUsage:    payload.MemUsage,
@@ -82,7 +84,9 @@ func SubscribeDeviceStatus(client pahomqtt.Client, db *gorm.DB, hub *ws.Hub) {
 			UptimeSecs:  payload.UptimeSecs,
 			LoadAvg:     payload.LoadAvg,
 			CollectedAt: now,
-		})
+		}).Error; err != nil {
+			log.Printf("failed to create device metrics for MAC %s: %v", payload.MAC, err)
+		}
 
 		// Evaluate alert thresholds
 		jobs.EvaluateDeviceAlerts(db, hub, deviceID, payload.MAC, payload.CPUUsage, payload.MemUsage, payload.Conntrack)
@@ -122,7 +126,9 @@ func SubscribeConfigACK(client pahomqtt.Client, db *gorm.DB, hub *ws.Hub) {
 
 		now := time.Now()
 		updates := map[string]any{"status": payload.Status, "applied_at": &now}
-		db.Model(&model.DeviceConfig{}).Where("id = ?", payload.ConfigID).Updates(updates)
+		if err := db.Model(&model.DeviceConfig{}).Where("id = ?", payload.ConfigID).Updates(updates).Error; err != nil {
+			log.Printf("failed to update config %d status: %v", payload.ConfigID, err)
+		}
 
 		log.Printf("config %d status -> %s", payload.ConfigID, payload.Status)
 
@@ -156,7 +162,9 @@ func SubscribeUpgradeACK(client pahomqtt.Client, db *gorm.DB, hub *ws.Hub) {
 		if payload.Error != "" {
 			updates["error_msg"] = payload.Error
 		}
-		db.Model(&model.FirmwareUpgrade{}).Where("id = ?", payload.UpgradeID).Updates(updates)
+		if err := db.Model(&model.FirmwareUpgrade{}).Where("id = ?", payload.UpgradeID).Updates(updates).Error; err != nil {
+			log.Printf("failed to update upgrade %d status: %v", payload.UpgradeID, err)
+		}
 
 		log.Printf("upgrade %d status -> %s", payload.UpgradeID, payload.Status)
 
