@@ -53,7 +53,10 @@ func (h *VPNHandler) UpdateInterface(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	h.DB.Save(&iface)
+	if err := h.DB.Save(&iface).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	writeAudit(h.DB, c, "update", "vpn_interface", fmt.Sprintf("updated WireGuard interface %s (id=%d)", iface.Name, iface.ID))
 	c.JSON(http.StatusOK, iface)
 }
@@ -105,7 +108,10 @@ func (h *VPNHandler) UpdatePeer(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	h.DB.Save(&peer)
+	if err := h.DB.Save(&peer).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	writeAudit(h.DB, c, "update", "vpn_peer", fmt.Sprintf("updated WireGuard peer %s (id=%d)", peer.Description, peer.ID))
 	c.JSON(http.StatusOK, peer)
 }

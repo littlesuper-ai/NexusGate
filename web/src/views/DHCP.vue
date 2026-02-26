@@ -152,50 +152,60 @@ const openLeaseDialog = (row?: any) => {
 
 const fetchAll = async () => {
   if (!selectedDevice.value) { pools.value = []; leases.value = []; return }
-  const [p, l] = await Promise.all([
-    getDHCPPools(selectedDevice.value),
-    getStaticLeases(selectedDevice.value),
-  ])
-  pools.value = p.data
-  leases.value = l.data
+  try {
+    const [p, l] = await Promise.all([
+      getDHCPPools(selectedDevice.value),
+      getStaticLeases(selectedDevice.value),
+    ])
+    pools.value = p.data
+    leases.value = l.data
+  } catch { ElMessage.error('获取 DHCP 数据失败') }
 }
 
 const submitPool = async () => {
-  if (editingPoolId.value) {
-    await updateDHCPPool(editingPoolId.value, { ...poolForm, device_id: selectedDevice.value })
-    ElMessage.success('已更新')
-  } else {
-    await createDHCPPool({ ...poolForm, device_id: selectedDevice.value })
-    ElMessage.success('已添加')
-  }
-  showPoolDialog.value = false
-  Object.assign(poolForm, defaultPoolForm)
-  editingPoolId.value = null
-  fetchAll()
+  try {
+    if (editingPoolId.value) {
+      await updateDHCPPool(editingPoolId.value, { ...poolForm, device_id: selectedDevice.value })
+      ElMessage.success('已更新')
+    } else {
+      await createDHCPPool({ ...poolForm, device_id: selectedDevice.value })
+      ElMessage.success('已添加')
+    }
+    showPoolDialog.value = false
+    Object.assign(poolForm, defaultPoolForm)
+    editingPoolId.value = null
+    fetchAll()
+  } catch { ElMessage.error('保存地址池失败') }
 }
 
 const handleDeletePool = async (id: number) => {
   await ElMessageBox.confirm('确认删除此地址池？', '确认')
-  await deleteDHCPPool(id); ElMessage.success('已删除'); fetchAll()
+  try {
+    await deleteDHCPPool(id); ElMessage.success('已删除'); fetchAll()
+  } catch { ElMessage.error('删除失败') }
 }
 
 const submitLease = async () => {
-  if (editingLeaseId.value) {
-    await updateStaticLease(editingLeaseId.value, { ...leaseForm, device_id: selectedDevice.value })
-    ElMessage.success('已更新')
-  } else {
-    await createStaticLease({ ...leaseForm, device_id: selectedDevice.value })
-    ElMessage.success('已添加')
-  }
-  showLeaseDialog.value = false
-  Object.assign(leaseForm, defaultLeaseForm)
-  editingLeaseId.value = null
-  fetchAll()
+  try {
+    if (editingLeaseId.value) {
+      await updateStaticLease(editingLeaseId.value, { ...leaseForm, device_id: selectedDevice.value })
+      ElMessage.success('已更新')
+    } else {
+      await createStaticLease({ ...leaseForm, device_id: selectedDevice.value })
+      ElMessage.success('已添加')
+    }
+    showLeaseDialog.value = false
+    Object.assign(leaseForm, defaultLeaseForm)
+    editingLeaseId.value = null
+    fetchAll()
+  } catch { ElMessage.error('保存绑定失败') }
 }
 
 const handleDeleteLease = async (id: number) => {
   await ElMessageBox.confirm('确认删除此绑定？', '确认')
-  await deleteStaticLease(id); ElMessage.success('已删除'); fetchAll()
+  try {
+    await deleteStaticLease(id); ElMessage.success('已删除'); fetchAll()
+  } catch { ElMessage.error('删除失败') }
 }
 
 const handleApply = async () => {

@@ -234,71 +234,89 @@ const openRuleDialog = (row?: any) => {
 
 const fetchAll = async () => {
   if (!selectedDevice.value) { wans.value = []; policies.value = []; rules.value = []; return }
-  const [w, p, r] = await Promise.all([
-    getWANInterfaces(selectedDevice.value),
-    getMWANPolicies(selectedDevice.value),
-    getMWANRules(selectedDevice.value),
-  ])
-  wans.value = w.data
-  policies.value = p.data
-  rules.value = r.data
+  try {
+    const [w, p, r] = await Promise.all([
+      getWANInterfaces(selectedDevice.value),
+      getMWANPolicies(selectedDevice.value),
+      getMWANRules(selectedDevice.value),
+    ])
+    wans.value = w.data
+    policies.value = p.data
+    rules.value = r.data
+  } catch { ElMessage.error('获取 MWAN 数据失败') }
 }
 
 const submitWan = async () => {
-  if (editingWanId.value) {
-    await updateWANInterface(editingWanId.value, { ...wanForm, device_id: selectedDevice.value })
-    ElMessage.success('已更新')
-  } else {
-    await createWANInterface({ ...wanForm, device_id: selectedDevice.value })
-    ElMessage.success('已添加')
-  }
-  showWanDialog.value = false; editingWanId.value = null
-  Object.assign(wanForm, defaultWan); fetchAll()
+  try {
+    if (editingWanId.value) {
+      await updateWANInterface(editingWanId.value, { ...wanForm, device_id: selectedDevice.value })
+      ElMessage.success('已更新')
+    } else {
+      await createWANInterface({ ...wanForm, device_id: selectedDevice.value })
+      ElMessage.success('已添加')
+    }
+    showWanDialog.value = false; editingWanId.value = null
+    Object.assign(wanForm, defaultWan); fetchAll()
+  } catch { ElMessage.error('保存 WAN 接口失败') }
 }
 const handleDeleteWan = async (id: number) => {
   await ElMessageBox.confirm('确认删除此 WAN 接口？', '确认')
-  await deleteWANInterface(id); ElMessage.success('已删除'); fetchAll()
+  try {
+    await deleteWANInterface(id); ElMessage.success('已删除'); fetchAll()
+  } catch { ElMessage.error('删除 WAN 接口失败') }
 }
 const submitPolicy = async () => {
-  if (editingPolicyId.value) {
-    await updateMWANPolicy(editingPolicyId.value, { ...policyForm, device_id: selectedDevice.value })
-    ElMessage.success('已更新')
-  } else {
-    await createMWANPolicy({ ...policyForm, device_id: selectedDevice.value })
-    ElMessage.success('已添加')
-  }
-  showPolicyDialog.value = false; editingPolicyId.value = null
-  Object.assign(policyForm, defaultPolicy); fetchAll()
+  try {
+    if (editingPolicyId.value) {
+      await updateMWANPolicy(editingPolicyId.value, { ...policyForm, device_id: selectedDevice.value })
+      ElMessage.success('已更新')
+    } else {
+      await createMWANPolicy({ ...policyForm, device_id: selectedDevice.value })
+      ElMessage.success('已添加')
+    }
+    showPolicyDialog.value = false; editingPolicyId.value = null
+    Object.assign(policyForm, defaultPolicy); fetchAll()
+  } catch { ElMessage.error('保存策略失败') }
 }
 const handleDeletePolicy = async (id: number) => {
   await ElMessageBox.confirm('确认删除此策略？', '确认')
-  await deleteMWANPolicy(id); ElMessage.success('已删除'); fetchAll()
+  try {
+    await deleteMWANPolicy(id); ElMessage.success('已删除'); fetchAll()
+  } catch { ElMessage.error('删除策略失败') }
 }
 const submitRule = async () => {
-  if (editingRuleId.value) {
-    await updateMWANRule(editingRuleId.value, { ...ruleForm, device_id: selectedDevice.value })
-    ElMessage.success('已更新')
-  } else {
-    await createMWANRule({ ...ruleForm, device_id: selectedDevice.value })
-    ElMessage.success('已添加')
-  }
-  showRuleDialog.value = false; editingRuleId.value = null
-  Object.assign(ruleForm, defaultRule); fetchAll()
+  try {
+    if (editingRuleId.value) {
+      await updateMWANRule(editingRuleId.value, { ...ruleForm, device_id: selectedDevice.value })
+      ElMessage.success('已更新')
+    } else {
+      await createMWANRule({ ...ruleForm, device_id: selectedDevice.value })
+      ElMessage.success('已添加')
+    }
+    showRuleDialog.value = false; editingRuleId.value = null
+    Object.assign(ruleForm, defaultRule); fetchAll()
+  } catch { ElMessage.error('保存规则失败') }
 }
 const handleDeleteRule = async (id: number) => {
   await ElMessageBox.confirm('确认删除此规则？', '确认')
-  await deleteMWANRule(id); ElMessage.success('已删除'); fetchAll()
+  try {
+    await deleteMWANRule(id); ElMessage.success('已删除'); fetchAll()
+  } catch { ElMessage.error('删除规则失败') }
 }
 
 const handleApply = async () => {
   if (!selectedDevice.value) return
   await ElMessageBox.confirm('确认应用 mwan3 配置到设备？', '确认应用', { type: 'warning' })
-  const { data } = await applyMWAN(selectedDevice.value)
-  ElMessage.success(data.message || '配置已推送')
+  try {
+    const { data } = await applyMWAN(selectedDevice.value)
+    ElMessage.success(data.message || '配置已推送')
+  } catch { ElMessage.error('MWAN 配置下发失败') }
 }
 
 onMounted(async () => {
-  const { data } = await getDevices()
-  devices.value = data
+  try {
+    const { data } = await getDevices()
+    devices.value = data
+  } catch { ElMessage.error('获取设备列表失败') }
 })
 </script>

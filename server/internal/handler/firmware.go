@@ -55,7 +55,11 @@ func (h *FirmwareHandler) Upload(c *gin.Context) {
 		return
 	}
 
-	hash, _ := hashFile(savePath)
+	hash, err := hashFile(savePath)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to compute file hash"})
+		return
+	}
 
 	fw := model.Firmware{
 		Version:     version,

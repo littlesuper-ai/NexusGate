@@ -157,7 +157,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, nextTick, watch, markRaw } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, nextTick, watch, markRaw } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
@@ -190,6 +190,7 @@ const memChartRef = ref<HTMLElement>()
 const netChartRef = ref<HTMLElement>()
 const connChartRef = ref<HTMLElement>()
 const miniCpuChart = ref<HTMLElement>()
+const chartInstances: echarts.ECharts[] = []
 
 const { on: wsOn } = useWebSocket()
 
@@ -248,17 +249,24 @@ const renderCharts = async () => {
     series: [{ data, type: 'line', smooth: true, itemStyle: { color }, ...(isArea ? { areaStyle: { opacity: 0.2 } } : {}) }],
   })
 
+  // Dispose previous chart instances before re-creating
+  chartInstances.forEach(c => c.dispose())
+  chartInstances.length = 0
+
+  const initChart = (el: HTMLElement) => {
+    const c = markRaw(echarts.init(el))
+    chartInstances.push(c)
+    return c
+  }
+
   if (cpuChartRef.value) {
-    const c = markRaw(echarts.init(cpuChartRef.value))
-    c.setOption({ ...mkOpts('CPU %', sorted.map((m: any) => +m.cpu_usage?.toFixed(1)), '#409EFF'), yAxis: { type: 'value', max: 100 } })
+    initChart(cpuChartRef.value).setOption({ ...mkOpts('CPU %', sorted.map((m: any) => +m.cpu_usage?.toFixed(1)), '#409EFF'), yAxis: { type: 'value', max: 100 } })
   }
   if (memChartRef.value) {
-    const c = markRaw(echarts.init(memChartRef.value))
-    c.setOption({ ...mkOpts('内存 %', sorted.map((m: any) => +m.mem_usage?.toFixed(1)), '#E6A23C'), yAxis: { type: 'value', max: 100 } })
+    initChart(memChartRef.value).setOption({ ...mkOpts('内存 %', sorted.map((m: any) => +m.mem_usage?.toFixed(1)), '#E6A23C'), yAxis: { type: 'value', max: 100 } })
   }
   if (netChartRef.value) {
-    const c = markRaw(echarts.init(netChartRef.value))
-    c.setOption({
+    initChart(netChartRef.value).setOption({
       title: { text: '网络流量 (MB)', left: 'center', textStyle: { fontSize: 13 } },
       tooltip: { trigger: 'axis' }, legend: { data: ['RX', 'TX'], bottom: 0 },
       grid: { left: 50, right: 15, top: 35, bottom: 40 },
@@ -271,14 +279,12 @@ const renderCharts = async () => {
     })
   }
   if (connChartRef.value) {
-    const c = markRaw(echarts.init(connChartRef.value))
-    c.setOption(mkOpts('连接追踪', sorted.map((m: any) => m.conntrack), '#909399', false))
+    initChart(connChartRef.value).setOption(mkOpts('连接追踪', sorted.map((m: any) => m.conntrack), '#909399', false))
   }
 
   // Mini CPU chart on status tab
   if (miniCpuChart.value && sorted.length > 0) {
-    const c = markRaw(echarts.init(miniCpuChart.value))
-    c.setOption({
+    initChart(miniCpuChart.value).setOption({
       title: { text: 'CPU 趋势 (近2小时)', left: 'center', textStyle: { fontSize: 12 } },
       tooltip: { trigger: 'axis' }, grid: { left: 40, right: 15, top: 30, bottom: 25 },
       xAxis: { type: 'category', data: times, axisLabel: { interval } },
@@ -345,6 +351,11 @@ onMounted(async () => {
   } finally {
     loading.value = false
   }
+})
+
+onUnmounted(() => {
+  chartInstances.forEach(c => c.dispose())
+  chartInstances.length = 0
 })
 </script>
 

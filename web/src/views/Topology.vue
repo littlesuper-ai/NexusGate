@@ -13,9 +13,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, markRaw } from 'vue'
+import { ref, onMounted, onUnmounted, markRaw } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
+import { ElMessage } from 'element-plus'
 import { getDevices } from '../api'
 import { useWebSocket } from '../composables/useWebSocket'
 
@@ -59,7 +60,14 @@ interface Device {
 }
 
 const fetchAndRender = async () => {
-  const { data } = await getDevices()
+  let data: Device[]
+  try {
+    const res = await getDevices()
+    data = res.data
+  } catch {
+    ElMessage.error('获取拓扑数据失败')
+    return
+  }
   const devices: Device[] = data
 
   // Build topology: Internet -> groups -> devices
@@ -184,4 +192,9 @@ const fetchAndRender = async () => {
 }
 
 onMounted(fetchAndRender)
+
+onUnmounted(() => {
+  chart?.dispose()
+  chart = null
+})
 </script>

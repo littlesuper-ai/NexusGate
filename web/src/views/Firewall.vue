@@ -146,48 +146,62 @@ const ruleForm = reactive({ name: '', src: '', dest: '', proto: 'tcp', src_ip: '
 
 const fetchAll = async () => {
   if (!deviceId.value) return
-  const [z, r] = await Promise.all([getFirewallZones(deviceId.value), getFirewallRules(deviceId.value)])
-  zones.value = z.data
-  rules.value = r.data
+  try {
+    const [z, r] = await Promise.all([getFirewallZones(deviceId.value), getFirewallRules(deviceId.value)])
+    zones.value = z.data
+    rules.value = r.data
+  } catch { ElMessage.error('获取防火墙数据失败') }
 }
 
 const handleCreateZone = async () => {
-  await createFirewallZone({ ...zoneForm, device_id: deviceId.value })
-  ElMessage.success('区域已创建')
-  showZoneDialog.value = false
-  fetchAll()
+  try {
+    await createFirewallZone({ ...zoneForm, device_id: deviceId.value })
+    ElMessage.success('区域已创建')
+    showZoneDialog.value = false
+    fetchAll()
+  } catch { ElMessage.error('创建区域失败') }
 }
 
 const handleDeleteZone = async (zone: any) => {
   await ElMessageBox.confirm(`删除区域 "${zone.name}"？`, '确认', { type: 'warning' })
-  await deleteFirewallZone(zone.id)
-  ElMessage.success('已删除')
-  fetchAll()
+  try {
+    await deleteFirewallZone(zone.id)
+    ElMessage.success('已删除')
+    fetchAll()
+  } catch { ElMessage.error('删除区域失败') }
 }
 
 const handleCreateRule = async () => {
-  await createFirewallRule({ ...ruleForm, device_id: deviceId.value, enabled: true })
-  ElMessage.success('规则已创建')
-  showRuleDialog.value = false
-  fetchAll()
+  try {
+    await createFirewallRule({ ...ruleForm, device_id: deviceId.value, enabled: true })
+    ElMessage.success('规则已创建')
+    showRuleDialog.value = false
+    fetchAll()
+  } catch { ElMessage.error('创建规则失败') }
 }
 
 const handleDeleteRule = async (rule: any) => {
   await ElMessageBox.confirm(`删除规则 "${rule.name}"？`, '确认', { type: 'warning' })
-  await deleteFirewallRule(rule.id)
-  ElMessage.success('已删除')
-  fetchAll()
+  try {
+    await deleteFirewallRule(rule.id)
+    ElMessage.success('已删除')
+    fetchAll()
+  } catch { ElMessage.error('删除规则失败') }
 }
 
 const handleApply = async () => {
   if (!deviceId.value) return
   await ElMessageBox.confirm('确认将当前防火墙配置应用到设备？', '应用确认', { type: 'warning' })
-  await applyFirewall(deviceId.value)
-  ElMessage.success('防火墙配置已下发')
+  try {
+    await applyFirewall(deviceId.value)
+    ElMessage.success('防火墙配置已下发')
+  } catch { ElMessage.error('防火墙配置下发失败') }
 }
 
 onMounted(async () => {
-  const { data } = await getDevices()
-  devices.value = data
+  try {
+    const { data } = await getDevices()
+    devices.value = data
+  } catch { ElMessage.error('获取设备列表失败') }
 })
 </script>

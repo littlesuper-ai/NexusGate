@@ -128,11 +128,14 @@ func (h *DeviceHandler) Update(c *gin.Context) {
 		return
 	}
 
-	h.DB.Model(&device).Updates(map[string]any{
+	if err := h.DB.Model(&device).Updates(map[string]any{
 		"name":  req.Name,
 		"group": req.Group,
 		"tags":  req.Tags,
-	})
+	}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	writeAudit(h.DB, c, "update", "device", fmt.Sprintf("updated device %s (id=%d)", device.Name, device.ID))
 	c.JSON(http.StatusOK, device)
 }

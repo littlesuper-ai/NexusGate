@@ -124,55 +124,71 @@ const fetchInterfaces = async () => {
   if (!deviceId.value) return
   selectedIface.value = null
   peers.value = []
-  const { data } = await getVPNInterfaces(deviceId.value)
-  interfaces.value = data
+  try {
+    const { data } = await getVPNInterfaces(deviceId.value)
+    interfaces.value = data
+  } catch { ElMessage.error('获取 VPN 接口失败') }
 }
 
 const selectInterface = async (iface: any) => {
   selectedIface.value = iface
   if (iface) {
-    const { data } = await getVPNPeers(iface.id)
-    peers.value = data
+    try {
+      const { data } = await getVPNPeers(iface.id)
+      peers.value = data
+    } catch { ElMessage.error('获取 Peer 列表失败') }
   }
 }
 
 const handleCreateIface = async () => {
-  await createVPNInterface({ ...ifaceForm, device_id: deviceId.value, enabled: true })
-  ElMessage.success('接口已创建')
-  showIfaceDialog.value = false
-  fetchInterfaces()
+  try {
+    await createVPNInterface({ ...ifaceForm, device_id: deviceId.value, enabled: true })
+    ElMessage.success('接口已创建')
+    showIfaceDialog.value = false
+    fetchInterfaces()
+  } catch { ElMessage.error('创建接口失败') }
 }
 
 const handleDeleteIface = async (iface: any) => {
   await ElMessageBox.confirm(`删除接口 "${iface.name}" 及其所有 Peers？`, '确认', { type: 'warning' })
-  await deleteVPNInterface(iface.id)
-  ElMessage.success('已删除')
-  fetchInterfaces()
+  try {
+    await deleteVPNInterface(iface.id)
+    ElMessage.success('已删除')
+    fetchInterfaces()
+  } catch { ElMessage.error('删除失败') }
 }
 
 const handleCreatePeer = async () => {
-  await createVPNPeer({ ...peerForm, interface_id: selectedIface.value.id, enabled: true })
-  ElMessage.success('Peer 已添加')
-  showPeerDialog.value = false
-  selectInterface(selectedIface.value)
+  try {
+    await createVPNPeer({ ...peerForm, interface_id: selectedIface.value.id, enabled: true })
+    ElMessage.success('Peer 已添加')
+    showPeerDialog.value = false
+    selectInterface(selectedIface.value)
+  } catch { ElMessage.error('添加 Peer 失败') }
 }
 
 const handleDeletePeer = async (peer: any) => {
   await ElMessageBox.confirm('删除此 Peer？', '确认', { type: 'warning' })
-  await deleteVPNPeer(peer.id)
-  ElMessage.success('已删除')
-  selectInterface(selectedIface.value)
+  try {
+    await deleteVPNPeer(peer.id)
+    ElMessage.success('已删除')
+    selectInterface(selectedIface.value)
+  } catch { ElMessage.error('删除失败') }
 }
 
 const handleApply = async () => {
   if (!deviceId.value) return
   await ElMessageBox.confirm('确认将 VPN 配置应用到设备？', '应用确认', { type: 'warning' })
-  await applyVPN(deviceId.value)
-  ElMessage.success('VPN 配置已下发')
+  try {
+    await applyVPN(deviceId.value)
+    ElMessage.success('VPN 配置已下发')
+  } catch { ElMessage.error('配置下发失败') }
 }
 
 onMounted(async () => {
-  const { data } = await getDevices()
-  devices.value = data
+  try {
+    const { data } = await getDevices()
+    devices.value = data
+  } catch { ElMessage.error('获取设备列表失败') }
 })
 </script>

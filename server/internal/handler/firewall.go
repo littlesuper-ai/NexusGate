@@ -53,7 +53,10 @@ func (h *FirewallHandler) UpdateZone(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	h.DB.Save(&zone)
+	if err := h.DB.Save(&zone).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	writeAudit(h.DB, c, "update", "firewall_zone", fmt.Sprintf("updated firewall zone %s (id=%d)", zone.Name, zone.ID))
 	c.JSON(http.StatusOK, zone)
 }
@@ -104,7 +107,10 @@ func (h *FirewallHandler) UpdateRule(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	h.DB.Save(&rule)
+	if err := h.DB.Save(&rule).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	writeAudit(h.DB, c, "update", "firewall_rule", fmt.Sprintf("updated firewall rule %s (id=%d)", rule.Name, rule.ID))
 	c.JSON(http.StatusOK, rule)
 }

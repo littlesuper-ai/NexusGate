@@ -42,7 +42,10 @@ func (h *NetworkHandler) CreateWANInterface(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	h.DB.Create(&item)
+	if err := h.DB.Create(&item).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	writeAudit(h.DB, c, "create", "wan_interface", fmt.Sprintf("created WAN interface %s (id=%d)", item.Name, item.ID))
 	c.JSON(http.StatusCreated, item)
 }
@@ -57,13 +60,19 @@ func (h *NetworkHandler) UpdateWANInterface(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	h.DB.Save(&item)
+	if err := h.DB.Save(&item).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	writeAudit(h.DB, c, "update", "wan_interface", fmt.Sprintf("updated WAN interface %s (id=%d)", item.Name, item.ID))
 	c.JSON(http.StatusOK, item)
 }
 
 func (h *NetworkHandler) DeleteWANInterface(c *gin.Context) {
-	h.DB.Delete(&model.WANInterface{}, c.Param("id"))
+	if err := h.DB.Delete(&model.WANInterface{}, c.Param("id")).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	writeAudit(h.DB, c, "delete", "wan_interface", fmt.Sprintf("deleted WAN interface id=%s", c.Param("id")))
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 }
@@ -84,7 +93,10 @@ func (h *NetworkHandler) CreateMWANPolicy(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	h.DB.Create(&item)
+	if err := h.DB.Create(&item).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	writeAudit(h.DB, c, "create", "mwan_policy", fmt.Sprintf("created MWAN policy %s (id=%d)", item.Name, item.ID))
 	c.JSON(http.StatusCreated, item)
 }
@@ -99,13 +111,19 @@ func (h *NetworkHandler) UpdateMWANPolicy(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	h.DB.Save(&item)
+	if err := h.DB.Save(&item).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	writeAudit(h.DB, c, "update", "mwan_policy", fmt.Sprintf("updated MWAN policy %s (id=%d)", item.Name, item.ID))
 	c.JSON(http.StatusOK, item)
 }
 
 func (h *NetworkHandler) DeleteMWANPolicy(c *gin.Context) {
-	h.DB.Delete(&model.MWANPolicy{}, c.Param("id"))
+	if err := h.DB.Delete(&model.MWANPolicy{}, c.Param("id")).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	writeAudit(h.DB, c, "delete", "mwan_policy", fmt.Sprintf("deleted MWAN policy id=%s", c.Param("id")))
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 }
@@ -126,7 +144,10 @@ func (h *NetworkHandler) CreateMWANRule(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	h.DB.Create(&item)
+	if err := h.DB.Create(&item).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	writeAudit(h.DB, c, "create", "mwan_rule", fmt.Sprintf("created MWAN rule %s (id=%d)", item.Name, item.ID))
 	c.JSON(http.StatusCreated, item)
 }
@@ -141,13 +162,19 @@ func (h *NetworkHandler) UpdateMWANRule(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	h.DB.Save(&item)
+	if err := h.DB.Save(&item).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	writeAudit(h.DB, c, "update", "mwan_rule", fmt.Sprintf("updated MWAN rule %s (id=%d)", item.Name, item.ID))
 	c.JSON(http.StatusOK, item)
 }
 
 func (h *NetworkHandler) DeleteMWANRule(c *gin.Context) {
-	h.DB.Delete(&model.MWANRule{}, c.Param("id"))
+	if err := h.DB.Delete(&model.MWANRule{}, c.Param("id")).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	writeAudit(h.DB, c, "delete", "mwan_rule", fmt.Sprintf("deleted MWAN rule id=%s", c.Param("id")))
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 }
@@ -259,7 +286,10 @@ func (h *NetworkHandler) CreateDHCPPool(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	h.DB.Create(&item)
+	if err := h.DB.Create(&item).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	writeAudit(h.DB, c, "create", "dhcp_pool", fmt.Sprintf("created DHCP pool %s (id=%d)", item.Interface, item.ID))
 	c.JSON(http.StatusCreated, item)
 }
@@ -274,13 +304,19 @@ func (h *NetworkHandler) UpdateDHCPPool(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	h.DB.Save(&item)
+	if err := h.DB.Save(&item).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	writeAudit(h.DB, c, "update", "dhcp_pool", fmt.Sprintf("updated DHCP pool %s (id=%d)", item.Interface, item.ID))
 	c.JSON(http.StatusOK, item)
 }
 
 func (h *NetworkHandler) DeleteDHCPPool(c *gin.Context) {
-	h.DB.Delete(&model.DHCPPool{}, c.Param("id"))
+	if err := h.DB.Delete(&model.DHCPPool{}, c.Param("id")).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	writeAudit(h.DB, c, "delete", "dhcp_pool", fmt.Sprintf("deleted DHCP pool id=%s", c.Param("id")))
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 }
@@ -301,7 +337,10 @@ func (h *NetworkHandler) CreateStaticLease(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	h.DB.Create(&item)
+	if err := h.DB.Create(&item).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	writeAudit(h.DB, c, "create", "static_lease", fmt.Sprintf("created static lease %s/%s (id=%d)", item.Name, item.MAC, item.ID))
 	c.JSON(http.StatusCreated, item)
 }
@@ -316,13 +355,19 @@ func (h *NetworkHandler) UpdateStaticLease(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	h.DB.Save(&item)
+	if err := h.DB.Save(&item).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	writeAudit(h.DB, c, "update", "static_lease", fmt.Sprintf("updated static lease %s/%s (id=%d)", item.Name, item.MAC, item.ID))
 	c.JSON(http.StatusOK, item)
 }
 
 func (h *NetworkHandler) DeleteStaticLease(c *gin.Context) {
-	h.DB.Delete(&model.StaticLease{}, c.Param("id"))
+	if err := h.DB.Delete(&model.StaticLease{}, c.Param("id")).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	writeAudit(h.DB, c, "delete", "static_lease", fmt.Sprintf("deleted static lease id=%s", c.Param("id")))
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 }
@@ -345,7 +390,10 @@ func (h *NetworkHandler) CreateVLAN(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	h.DB.Create(&item)
+	if err := h.DB.Create(&item).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	writeAudit(h.DB, c, "create", "vlan", fmt.Sprintf("created VLAN %d %s (id=%d)", item.VID, item.Name, item.ID))
 	c.JSON(http.StatusCreated, item)
 }
@@ -360,13 +408,19 @@ func (h *NetworkHandler) UpdateVLAN(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	h.DB.Save(&item)
+	if err := h.DB.Save(&item).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	writeAudit(h.DB, c, "update", "vlan", fmt.Sprintf("updated VLAN %d %s (id=%d)", item.VID, item.Name, item.ID))
 	c.JSON(http.StatusOK, item)
 }
 
 func (h *NetworkHandler) DeleteVLAN(c *gin.Context) {
-	h.DB.Delete(&model.VLAN{}, c.Param("id"))
+	if err := h.DB.Delete(&model.VLAN{}, c.Param("id")).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	writeAudit(h.DB, c, "delete", "vlan", fmt.Sprintf("deleted VLAN id=%s", c.Param("id")))
 	c.JSON(http.StatusOK, gin.H{"message": "deleted"})
 }
