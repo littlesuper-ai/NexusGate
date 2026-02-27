@@ -6,6 +6,10 @@ server/nexusgate
 web/node_modules/
 web/dist/
 web/.vite/
+web/tsconfig.tsbuildinfo
+web/tsconfig.node.tsbuildinfo
+web/vite.config.js
+web/vite.config.d.ts
 
 # IDE
 .idea/
