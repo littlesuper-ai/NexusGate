@@ -74,7 +74,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getDevices, rebootDevice, deleteDevice, bulkDeleteDevices, bulkRebootDevices, exportDevicesCSV } from '../api'
+import { getDevices, rebootDevice, deleteDevice, bulkDeleteDevices, bulkRebootDevices, exportDevicesCSV, apiErr } from '../api'
 
 interface Device {
   id: number
@@ -127,8 +127,8 @@ const fetchDevices = async () => {
       devices.value = data
       total.value = data.length
     }
-  } catch {
-    ElMessage.error('获取设备列表失败')
+  } catch (e: any) {
+    ElMessage.error(apiErr(e, '获取设备列表失败'))
   } finally {
     loading.value = false
   }
@@ -136,45 +136,64 @@ const fetchDevices = async () => {
 
 const handleReboot = async (device: Device) => {
   await ElMessageBox.confirm(`确认重启设备 "${device.name}"？`, '重启确认', { type: 'warning' })
-  await rebootDevice(device.id)
-  ElMessage.success('重启指令已发送')
+  try {
+    await rebootDevice(device.id)
+    ElMessage.success('重启指令已发送')
+  } catch (e) {
+    ElMessage.error(apiErr(e, '重启失败'))
+  }
 }
 
 const handleDelete = async (device: Device) => {
   await ElMessageBox.confirm(`确认删除设备 "${device.name}"？此操作不可恢复`, '删除确认', { type: 'warning' })
-  await deleteDevice(device.id)
-  ElMessage.success('已删除')
-  fetchDevices()
+  try {
+    await deleteDevice(device.id)
+    ElMessage.success('已删除')
+    fetchDevices()
+  } catch (e) {
+    ElMessage.error(apiErr(e, '删除失败'))
+  }
 }
 
 const handleBulkReboot = async () => {
   await ElMessageBox.confirm(`确认批量重启 ${selectedRows.value.length} 台设备？`, '批量重启', { type: 'warning' })
   const ids = selectedRows.value.map((d) => d.id)
-  await bulkRebootDevices(ids)
-  ElMessage.success(`已发送重启指令到 ${selectedRows.value.length} 台设备`)
+  try {
+    await bulkRebootDevices(ids)
+    ElMessage.success(`已发送重启指令到 ${selectedRows.value.length} 台设备`)
+    fetchDevices()
+  } catch (e) {
+    ElMessage.error(apiErr(e, '批量重启失败'))
+  }
 }
 
 const handleBulkDelete = async () => {
   await ElMessageBox.confirm(`确认批量删除 ${selectedRows.value.length} 台设备？此操作不可恢复`, '批量删除', { type: 'warning' })
   const ids = selectedRows.value.map((d) => d.id)
-  await bulkDeleteDevices(ids)
-  ElMessage.success('已删除')
-  fetchDevices()
+  try {
+    await bulkDeleteDevices(ids)
+    ElMessage.success('已删除')
+    fetchDevices()
+  } catch (e) {
+    ElMessage.error(apiErr(e, '批量删除失败'))
+  }
 }
 
 const handleExport = async () => {
+  let url: string | null = null
   try {
     const params: Record<string, string> = {}
     if (statusFilter.value) params.status = statusFilter.value
     const { data } = await exportDevicesCSV(params)
-    const url = URL.createObjectURL(data)
+    url = URL.createObjectURL(data)
     const a = document.createElement('a')
     a.href = url
     a.download = 'devices.csv'
     a.click()
-    URL.revokeObjectURL(url)
-  } catch {
-    ElMessage.error('导出失败')
+  } catch (e) {
+    ElMessage.error(apiErr(e, '导出失败'))
+  } finally {
+    if (url) URL.revokeObjectURL(url)
   }
 }
 

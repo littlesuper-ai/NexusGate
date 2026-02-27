@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	pahomqtt "github.com/eclipse/paho.mqtt.golang"
 	"github.com/nexusgate/nexusgate/internal/config"
 	"github.com/nexusgate/nexusgate/internal/handler"
 	"github.com/nexusgate/nexusgate/internal/jobs"
@@ -34,17 +35,18 @@ func main() {
 
 	store.SeedAdminUser(db)
 
-	mqttClient, err := mqtt.NewClient(cfg)
-	if err != nil {
-		log.Printf("warning: MQTT connection failed: %v", err)
-	}
-
 	wsHub := ws.NewHub(cfg.JWTSecret)
 
-	if mqttClient != nil {
-		mqtt.SubscribeDeviceStatus(mqttClient, db, wsHub)
-		mqtt.SubscribeConfigACK(mqttClient, db, wsHub)
-		mqtt.SubscribeUpgradeACK(mqttClient, db, wsHub)
+	// Subscribe handler — called on initial connect and on every reconnect
+	subscribeAll := func(c pahomqtt.Client) {
+		mqtt.SubscribeDeviceStatus(c, db, wsHub)
+		mqtt.SubscribeConfigACK(c, db, wsHub)
+		mqtt.SubscribeUpgradeACK(c, db, wsHub)
+	}
+
+	mqttClient, err := mqtt.NewClient(cfg, subscribeAll)
+	if err != nil {
+		log.Printf("warning: MQTT connection failed: %v", err)
 	}
 
 	// Start background jobs

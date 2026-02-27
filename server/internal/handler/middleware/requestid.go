@@ -22,6 +22,9 @@ func RequestID() gin.HandlerFunc {
 
 func generateID() string {
 	b := make([]byte, 8)
-	rand.Read(b)
+	if _, err := rand.Read(b); err != nil {
+		// Fallback: use zero bytes rather than panic
+		return "0000000000000000"
+	}
 	return hex.EncodeToString(b)
 }

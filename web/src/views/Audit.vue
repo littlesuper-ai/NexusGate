@@ -80,7 +80,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getAuditLogs } from '../api'
+import { getAuditLogs, apiErr } from '../api'
 
 const logs = ref<any[]>([])
 const loading = ref(false)
@@ -116,8 +116,8 @@ const fetchLogs = async () => {
       logs.value = data
       total.value = data.length
     }
-  } catch {
-    ElMessage.error('获取审计日志失败')
+  } catch (e: any) {
+    ElMessage.error(apiErr(e, '获取审计日志失败'))
   } finally {
     loading.value = false
   }

@@ -242,6 +242,11 @@ export const getAlerts = (params?: Record<string, string>) =>
 export const getAlertSummary = () => api.get('/alerts/summary')
 export const resolveAlert = (id: number) => api.post(`/alerts/${id}/resolve`)
 
+/** Clear the proactive token refresh timer (call on explicit logout). */
+export function clearTokenRefresh() {
+  if (refreshTimer) { clearTimeout(refreshTimer); refreshTimer = null }
+}
+
 /** Extract error message from Axios error response, with fallback. */
 export function apiErr(e: any, fallback: string): string {
   return e?.response?.data?.error || fallback

@@ -13,13 +13,24 @@ import (
 	"gorm.io/gorm"
 )
 
-func NewClient(cfg *config.Config) (pahomqtt.Client, error) {
+// OnConnectFunc is called after a successful MQTT connection (including reconnects).
+// Use it to re-subscribe topics.
+type OnConnectFunc func(client pahomqtt.Client)
+
+func NewClient(cfg *config.Config, onConnect OnConnectFunc) (pahomqtt.Client, error) {
 	opts := pahomqtt.NewClientOptions().
 		AddBroker(cfg.MQTTBroker).
 		SetClientID("nexusgate-server").
 		SetAutoReconnect(true).
 		SetConnectRetry(true).
 		SetConnectRetryInterval(5 * time.Second)
+
+	if onConnect != nil {
+		opts.SetOnConnectHandler(func(c pahomqtt.Client) {
+			log.Println("MQTT connected, subscribing to topics...")
+			onConnect(c)
+		})
+	}
 
 	client := pahomqtt.NewClient(opts)
 	token := client.Connect()
@@ -36,7 +47,7 @@ func NewClient(cfg *config.Config) (pahomqtt.Client, error) {
 // SubscribeDeviceStatus listens for heartbeat messages from agents and updates device status.
 // It also broadcasts status updates to connected WebSocket clients via the hub.
 func SubscribeDeviceStatus(client pahomqtt.Client, db *gorm.DB, hub *ws.Hub) {
-	client.Subscribe("nexusgate/devices/+/status", 1, func(_ pahomqtt.Client, msg pahomqtt.Message) {
+	token := client.Subscribe("nexusgate/devices/+/status", 1, func(_ pahomqtt.Client, msg pahomqtt.Message) {
 		var payload struct {
 			MAC        string  `json:"mac"`
 			CPUUsage   float64 `json:"cpu_usage"`
@@ -107,13 +118,18 @@ func SubscribeDeviceStatus(client pahomqtt.Client, db *gorm.DB, hub *ws.Hub) {
 			})
 		}
 	})
+	if !token.WaitTimeout(10 * time.Second) {
+		log.Println("warning: timeout subscribing to device status topic")
+	} else if token.Error() != nil {
+		log.Printf("warning: failed to subscribe to device status topic: %v", token.Error())
+	}
 }
 
 // SubscribeConfigACK listens for config apply acknowledgements from agents.
 // Topic: nexusgate/devices/+/config/ack
 // Payload: {"config_id": 123, "status": "applied"|"failed", "error": "..."}
 func SubscribeConfigACK(client pahomqtt.Client, db *gorm.DB, hub *ws.Hub) {
-	client.Subscribe("nexusgate/devices/+/config/ack", 1, func(_ pahomqtt.Client, msg pahomqtt.Message) {
+	token := client.Subscribe("nexusgate/devices/+/config/ack", 1, func(_ pahomqtt.Client, msg pahomqtt.Message) {
 		var payload struct {
 			ConfigID uint   `json:"config_id"`
 			Status   string `json:"status"` // applied, failed
@@ -126,8 +142,12 @@ func SubscribeConfigACK(client pahomqtt.Client, db *gorm.DB, hub *ws.Hub) {
 
 		now := time.Now()
 		updates := map[string]any{"status": payload.Status, "applied_at": &now}
-		if err := db.Model(&model.DeviceConfig{}).Where("id = ?", payload.ConfigID).Updates(updates).Error; err != nil {
-			log.Printf("failed to update config %d status: %v", payload.ConfigID, err)
+		result := db.Model(&model.DeviceConfig{}).Where("id = ?", payload.ConfigID).Updates(updates)
+		if result.Error != nil {
+			log.Printf("failed to update config %d status: %v", payload.ConfigID, result.Error)
+		} else if result.RowsAffected == 0 {
+			log.Printf("config ACK for unknown config_id %d, ignoring", payload.ConfigID)
+			return
 		}
 
 		log.Printf("config %d status -> %s", payload.ConfigID, payload.Status)
@@ -140,13 +160,18 @@ func SubscribeConfigACK(client pahomqtt.Client, db *gorm.DB, hub *ws.Hub) {
 			})
 		}
 	})
+	if !token.WaitTimeout(10 * time.Second) {
+		log.Println("warning: timeout subscribing to config ACK topic")
+	} else if token.Error() != nil {
+		log.Printf("warning: failed to subscribe to config ACK topic: %v", token.Error())
+	}
 }
 
 // SubscribeUpgradeACK listens for firmware upgrade acknowledgements from agents.
 // Topic: nexusgate/devices/+/upgrade/ack
 // Payload: {"upgrade_id": 123, "status": "success"|"failed", "error": "..."}
 func SubscribeUpgradeACK(client pahomqtt.Client, db *gorm.DB, hub *ws.Hub) {
-	client.Subscribe("nexusgate/devices/+/upgrade/ack", 1, func(_ pahomqtt.Client, msg pahomqtt.Message) {
+	token := client.Subscribe("nexusgate/devices/+/upgrade/ack", 1, func(_ pahomqtt.Client, msg pahomqtt.Message) {
 		var payload struct {
 			UpgradeID uint   `json:"upgrade_id"`
 			Status    string `json:"status"` // success, failed
@@ -162,8 +187,12 @@ func SubscribeUpgradeACK(client pahomqtt.Client, db *gorm.DB, hub *ws.Hub) {
 		if payload.Error != "" {
 			updates["error_msg"] = payload.Error
 		}
-		if err := db.Model(&model.FirmwareUpgrade{}).Where("id = ?", payload.UpgradeID).Updates(updates).Error; err != nil {
-			log.Printf("failed to update upgrade %d status: %v", payload.UpgradeID, err)
+		result := db.Model(&model.FirmwareUpgrade{}).Where("id = ?", payload.UpgradeID).Updates(updates)
+		if result.Error != nil {
+			log.Printf("failed to update upgrade %d status: %v", payload.UpgradeID, result.Error)
+		} else if result.RowsAffected == 0 {
+			log.Printf("upgrade ACK for unknown upgrade_id %d, ignoring", payload.UpgradeID)
+			return
 		}
 
 		log.Printf("upgrade %d status -> %s", payload.UpgradeID, payload.Status)
@@ -176,4 +205,9 @@ func SubscribeUpgradeACK(client pahomqtt.Client, db *gorm.DB, hub *ws.Hub) {
 			})
 		}
 	})
+	if !token.WaitTimeout(10 * time.Second) {
+		log.Println("warning: timeout subscribing to upgrade ACK topic")
+	} else if token.Error() != nil {
+		log.Printf("warning: failed to subscribe to upgrade ACK topic: %v", token.Error())
+	}
 }

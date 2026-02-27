@@ -18,7 +18,7 @@
         <el-row justify="end" style="margin-bottom: 12px">
           <el-button type="primary" size="small" :disabled="!deviceId" @click="showZoneDialog = true">新建区域</el-button>
         </el-row>
-        <el-table :data="zones" stripe border>
+        <el-table :data="zones" v-loading="loading" stripe border>
           <template #empty><el-empty description="暂无防火墙区域" :image-size="60" /></template>
           <el-table-column prop="name" label="区域名称" width="120" />
           <el-table-column prop="networks" label="关联网络" />
@@ -53,7 +53,7 @@
         <el-row justify="end" style="margin-bottom: 12px">
           <el-button type="primary" size="small" :disabled="!deviceId" @click="showRuleDialog = true">新建规则</el-button>
         </el-row>
-        <el-table :data="rules" stripe border>
+        <el-table :data="rules" v-loading="loading" stripe border>
           <template #empty><el-empty description="暂无防火墙规则" :image-size="60" /></template>
           <el-table-column prop="position" label="#" width="50" />
           <el-table-column prop="name" label="规则名称" width="160" />
@@ -143,6 +143,7 @@ const rules = ref<any[]>([])
 const showZoneDialog = ref(false)
 const showRuleDialog = ref(false)
 
+const loading = ref(false)
 const submitting = ref(false)
 const applying = ref(false)
 const zoneForm = reactive({ name: '', networks: '', input: 'REJECT', output: 'ACCEPT', forward: 'REJECT', masq: false })
@@ -150,11 +151,13 @@ const ruleForm = reactive({ name: '', src: '', dest: '', proto: 'tcp', src_ip: '
 
 const fetchAll = async () => {
   if (!deviceId.value) return
+  loading.value = true
   try {
     const [z, r] = await Promise.all([getFirewallZones(deviceId.value), getFirewallRules(deviceId.value)])
     zones.value = z.data
     rules.value = r.data
-  } catch { ElMessage.error('获取防火墙数据失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '获取防火墙数据失败')) }
+  finally { loading.value = false }
 }
 
 const handleCreateZone = async () => {
@@ -175,7 +178,7 @@ const handleDeleteZone = async (zone: any) => {
     await deleteFirewallZone(zone.id)
     ElMessage.success('已删除')
     fetchAll()
-  } catch { ElMessage.error('删除区域失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '删除区域失败')) }
 }
 
 const handleCreateRule = async () => {
@@ -196,7 +199,7 @@ const handleDeleteRule = async (rule: any) => {
     await deleteFirewallRule(rule.id)
     ElMessage.success('已删除')
     fetchAll()
-  } catch { ElMessage.error('删除规则失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '删除规则失败')) }
 }
 
 const handleApply = async () => {
@@ -214,6 +217,6 @@ onMounted(async () => {
   try {
     const { data } = await getDevices()
     devices.value = data
-  } catch { ElMessage.error('获取设备列表失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '获取设备列表失败')) }
 })
 </script>

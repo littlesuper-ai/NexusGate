@@ -69,6 +69,14 @@ func (h *NetworkHandler) UpdateWANInterface(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if err := validateName("name", item.Name); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateUCIValue("track_ips", item.TrackIPs); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	if err := h.DB.Save(&item).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -78,8 +86,13 @@ func (h *NetworkHandler) UpdateWANInterface(c *gin.Context) {
 }
 
 func (h *NetworkHandler) DeleteWANInterface(c *gin.Context) {
-	if err := h.DB.Delete(&model.WANInterface{}, c.Param("id")).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	result := h.DB.Delete(&model.WANInterface{}, c.Param("id"))
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
+		return
+	}
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "wan interface not found"})
 		return
 	}
 	writeAudit(h.DB, c, "delete", "wan_interface", fmt.Sprintf("deleted WAN interface id=%s", c.Param("id")))
@@ -129,8 +142,13 @@ func (h *NetworkHandler) UpdateMWANPolicy(c *gin.Context) {
 }
 
 func (h *NetworkHandler) DeleteMWANPolicy(c *gin.Context) {
-	if err := h.DB.Delete(&model.MWANPolicy{}, c.Param("id")).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	result := h.DB.Delete(&model.MWANPolicy{}, c.Param("id"))
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
+		return
+	}
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "policy not found"})
 		return
 	}
 	writeAudit(h.DB, c, "delete", "mwan_policy", fmt.Sprintf("deleted MWAN policy id=%s", c.Param("id")))
@@ -180,8 +198,13 @@ func (h *NetworkHandler) UpdateMWANRule(c *gin.Context) {
 }
 
 func (h *NetworkHandler) DeleteMWANRule(c *gin.Context) {
-	if err := h.DB.Delete(&model.MWANRule{}, c.Param("id")).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	result := h.DB.Delete(&model.MWANRule{}, c.Param("id"))
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
+		return
+	}
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "rule not found"})
 		return
 	}
 	writeAudit(h.DB, c, "delete", "mwan_rule", fmt.Sprintf("deleted MWAN rule id=%s", c.Param("id")))
@@ -334,6 +357,18 @@ func (h *NetworkHandler) UpdateDHCPPool(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if err := validateUCIValue("interface", item.Interface); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateUCIValue("dns", item.DNS); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateIP("gateway", item.Gateway); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	if err := h.DB.Save(&item).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -343,8 +378,13 @@ func (h *NetworkHandler) UpdateDHCPPool(c *gin.Context) {
 }
 
 func (h *NetworkHandler) DeleteDHCPPool(c *gin.Context) {
-	if err := h.DB.Delete(&model.DHCPPool{}, c.Param("id")).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	result := h.DB.Delete(&model.DHCPPool{}, c.Param("id"))
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
+		return
+	}
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "dhcp pool not found"})
 		return
 	}
 	writeAudit(h.DB, c, "delete", "dhcp_pool", fmt.Sprintf("deleted DHCP pool id=%s", c.Param("id")))
@@ -397,6 +437,18 @@ func (h *NetworkHandler) UpdateStaticLease(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if err := validateMAC("mac", item.MAC); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateIP("ip", item.IP); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateUCIValue("name", item.Name); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	if err := h.DB.Save(&item).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -406,8 +458,13 @@ func (h *NetworkHandler) UpdateStaticLease(c *gin.Context) {
 }
 
 func (h *NetworkHandler) DeleteStaticLease(c *gin.Context) {
-	if err := h.DB.Delete(&model.StaticLease{}, c.Param("id")).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	result := h.DB.Delete(&model.StaticLease{}, c.Param("id"))
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
+		return
+	}
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "static lease not found"})
 		return
 	}
 	writeAudit(h.DB, c, "delete", "static_lease", fmt.Sprintf("deleted static lease id=%s", c.Param("id")))
@@ -462,6 +519,18 @@ func (h *NetworkHandler) UpdateVLAN(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if item.VID < 1 || item.VID > 4094 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "VLAN ID must be 1-4094"})
+		return
+	}
+	if err := validateUCIValue("name", item.Name); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateIP("ip_addr", item.IPAddr); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	if err := h.DB.Save(&item).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -471,8 +540,13 @@ func (h *NetworkHandler) UpdateVLAN(c *gin.Context) {
 }
 
 func (h *NetworkHandler) DeleteVLAN(c *gin.Context) {
-	if err := h.DB.Delete(&model.VLAN{}, c.Param("id")).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	result := h.DB.Delete(&model.VLAN{}, c.Param("id"))
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
+		return
+	}
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "vlan not found"})
 		return
 	}
 	writeAudit(h.DB, c, "delete", "vlan", fmt.Sprintf("deleted VLAN id=%s", c.Param("id")))

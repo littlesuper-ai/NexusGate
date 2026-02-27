@@ -17,7 +17,7 @@
       </el-row>
     </el-card>
 
-    <el-table :data="vlans" stripe border size="small">
+    <el-table :data="vlans" v-loading="loading" stripe border size="small">
       <el-table-column prop="id" label="ID" width="60" />
       <el-table-column prop="vid" label="VLAN ID" width="100" />
       <el-table-column prop="name" label="名称" width="120" />
@@ -68,6 +68,7 @@ import { getDevices, getVLANs, createVLAN, updateVLAN, deleteVLAN, applyVLAN, ap
 const devices = ref<any[]>([])
 const selectedDevice = ref<number | null>(null)
 const vlans = ref<any[]>([])
+const loading = ref(false)
 const applying = ref(false)
 const submitting = ref(false)
 const showDialog = ref(false)
@@ -85,10 +86,12 @@ const resetForm = () => {
 
 const fetchVLANs = async () => {
   if (!selectedDevice.value) { vlans.value = []; return }
+  loading.value = true
   try {
     const { data } = await getVLANs(selectedDevice.value)
     vlans.value = data
-  } catch { ElMessage.error('获取 VLAN 数据失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '获取 VLAN 数据失败')) }
+  finally { loading.value = false }
 }
 
 const openEdit = (row: any) => {
@@ -119,7 +122,7 @@ const handleDelete = async (id: number) => {
   await ElMessageBox.confirm('确认删除此 VLAN？', '确认')
   try {
     await deleteVLAN(id); ElMessage.success('已删除'); fetchVLANs()
-  } catch { ElMessage.error('删除 VLAN 失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '删除 VLAN 失败')) }
 }
 
 const handleApply = async () => {
@@ -129,8 +132,8 @@ const handleApply = async () => {
   try {
     await applyVLAN(selectedDevice.value)
     ElMessage.success('VLAN 配置已推送')
-  } catch {
-    ElMessage.error('VLAN 配置下发失败')
+  } catch (e: any) {
+    ElMessage.error(apiErr(e, 'VLAN 配置下发失败'))
   } finally {
     applying.value = false
   }
@@ -140,6 +143,6 @@ onMounted(async () => {
   try {
     const { data } = await getDevices()
     devices.value = data
-  } catch { ElMessage.error('获取设备列表失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '获取设备列表失败')) }
 })
 </script>

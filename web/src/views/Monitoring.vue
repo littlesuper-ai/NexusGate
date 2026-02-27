@@ -57,7 +57,7 @@ import { ref, onMounted, onUnmounted, nextTick, markRaw, watch } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import * as echarts from 'echarts'
-import { getDevices, getDeviceMetrics } from '../api'
+import { getDevices, getDeviceMetrics, apiErr } from '../api'
 import { useWebSocket } from '../composables/useWebSocket'
 
 const devices = ref<any[]>([])
@@ -105,8 +105,8 @@ const fetchMetrics = async () => {
     metrics.value = data
     await nextTick()
     renderCharts()
-  } catch {
-    ElMessage.error('获取监控数据失败')
+  } catch (e: any) {
+    ElMessage.error(apiErr(e, '获取监控数据失败'))
   } finally {
     loading.value = false
   }
@@ -179,8 +179,8 @@ onMounted(async () => {
   try {
     const { data } = await getDevices()
     devices.value = data
-  } catch {
-    ElMessage.error('获取设备列表失败')
+  } catch (e: any) {
+    ElMessage.error(apiErr(e, '获取设备列表失败'))
   }
 })
 

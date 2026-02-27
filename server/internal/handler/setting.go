@@ -72,18 +72,24 @@ func (h *SettingHandler) BatchUpsert(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
-	for _, item := range items {
-		if item.Category == "" {
-			item.Category = "general"
+	err := h.DB.Transaction(func(tx *gorm.DB) error {
+		for _, item := range items {
+			if item.Category == "" {
+				item.Category = "general"
+			}
+			s := model.SystemSetting{Key: item.Key, Value: item.Value, Category: item.Category}
+			if err := tx.Clauses(clause.OnConflict{
+				Columns:   []clause.Column{{Name: "key"}},
+				DoUpdates: clause.AssignmentColumns([]string{"value", "category", "updated_at"}),
+			}).Create(&s).Error; err != nil {
+				return fmt.Errorf("failed to save setting %s: %w", item.Key, err)
+			}
 		}
-		s := model.SystemSetting{Key: item.Key, Value: item.Value, Category: item.Category}
-		if err := h.DB.Clauses(clause.OnConflict{
-			Columns:   []clause.Column{{Name: "key"}},
-			DoUpdates: clause.AssignmentColumns([]string{"value", "category", "updated_at"}),
-		}).Create(&s).Error; err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to save setting %s", item.Key)})
-			return
-		}
+		return nil
+	})
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
 	}
 	writeAudit(h.DB, c, "batch_upsert", "setting", fmt.Sprintf("batch updated %d settings", len(items)))
 	c.JSON(http.StatusOK, gin.H{"message": "saved"})

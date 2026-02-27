@@ -50,12 +50,15 @@ func (h *DeviceHandler) Register(c *gin.Context) {
 
 	if result.RowsAffected == 0 {
 		now := time.Now()
-		h.DB.Model(&device).Updates(map[string]any{
+		if err := h.DB.Model(&device).Updates(map[string]any{
 			"ip_address":   req.IPAddress,
 			"firmware":     req.Firmware,
 			"status":       model.StatusOnline,
 			"last_seen_at": &now,
-		})
+		}).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			return
+		}
 	}
 
 	c.JSON(http.StatusOK, device)
@@ -301,7 +304,10 @@ func (h *DeviceHandler) BulkReboot(c *gin.Context) {
 	}
 
 	var devices []model.Device
-	h.DB.Where("id IN ?", req.IDs).Find(&devices)
+	if err := h.DB.Where("id IN ?", req.IDs).Find(&devices).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 
 	if h.MQTT == nil || !h.MQTT.IsConnected() {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "MQTT not connected"})

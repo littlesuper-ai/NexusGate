@@ -20,7 +20,7 @@
         <el-row justify="end" style="margin-bottom: 12px">
           <el-button type="primary" @click="openWanDialog()" :disabled="!selectedDevice">添加 WAN 接口</el-button>
         </el-row>
-        <el-table :data="wans" stripe border size="small">
+        <el-table :data="wans" v-loading="loading" stripe border size="small">
           <template #empty><el-empty description="暂无 WAN 接口" :image-size="60" /></template>
           <el-table-column prop="id" label="ID" width="60" />
           <el-table-column prop="name" label="名称" width="100" />
@@ -50,7 +50,7 @@
         <el-row justify="end" style="margin-bottom: 12px">
           <el-button type="primary" @click="openPolicyDialog()" :disabled="!selectedDevice">添加策略</el-button>
         </el-row>
-        <el-table :data="policies" stripe border size="small">
+        <el-table :data="policies" v-loading="loading" stripe border size="small">
           <template #empty><el-empty description="暂无负载策略" :image-size="60" /></template>
           <el-table-column prop="id" label="ID" width="60" />
           <el-table-column prop="name" label="策略名称" width="150" />
@@ -70,7 +70,7 @@
         <el-row justify="end" style="margin-bottom: 12px">
           <el-button type="primary" @click="openRuleDialog()" :disabled="!selectedDevice">添加规则</el-button>
         </el-row>
-        <el-table :data="rules" stripe border size="small">
+        <el-table :data="rules" v-loading="loading" stripe border size="small">
           <template #empty><el-empty description="暂无路由规则" :image-size="60" /></template>
           <el-table-column prop="id" label="ID" width="60" />
           <el-table-column prop="name" label="规则名" width="120" />
@@ -178,6 +178,7 @@ import {
 const devices = ref<any[]>([])
 const selectedDevice = ref<number | null>(null)
 const activeTab = ref('wan')
+const loading = ref(false)
 const applying = ref(false)
 
 const wans = ref<any[]>([])
@@ -239,6 +240,7 @@ const openRuleDialog = (row?: any) => {
 
 const fetchAll = async () => {
   if (!selectedDevice.value) { wans.value = []; policies.value = []; rules.value = []; return }
+  loading.value = true
   try {
     const [w, p, r] = await Promise.all([
       getWANInterfaces(selectedDevice.value),
@@ -248,7 +250,8 @@ const fetchAll = async () => {
     wans.value = w.data
     policies.value = p.data
     rules.value = r.data
-  } catch { ElMessage.error('获取 MWAN 数据失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '获取 MWAN 数据失败')) }
+  finally { loading.value = false }
 }
 
 const submitWan = async () => {
@@ -270,7 +273,7 @@ const handleDeleteWan = async (id: number) => {
   await ElMessageBox.confirm('确认删除此 WAN 接口？', '确认')
   try {
     await deleteWANInterface(id); ElMessage.success('已删除'); fetchAll()
-  } catch { ElMessage.error('删除 WAN 接口失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '删除 WAN 接口失败')) }
 }
 const submitPolicy = async () => {
   submitting.value = true
@@ -291,7 +294,7 @@ const handleDeletePolicy = async (id: number) => {
   await ElMessageBox.confirm('确认删除此策略？', '确认')
   try {
     await deleteMWANPolicy(id); ElMessage.success('已删除'); fetchAll()
-  } catch { ElMessage.error('删除策略失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '删除策略失败')) }
 }
 const submitRule = async () => {
   submitting.value = true
@@ -312,7 +315,7 @@ const handleDeleteRule = async (id: number) => {
   await ElMessageBox.confirm('确认删除此规则？', '确认')
   try {
     await deleteMWANRule(id); ElMessage.success('已删除'); fetchAll()
-  } catch { ElMessage.error('删除规则失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '删除规则失败')) }
 }
 
 const handleApply = async () => {
@@ -330,6 +333,6 @@ onMounted(async () => {
   try {
     const { data } = await getDevices()
     devices.value = data
-  } catch { ElMessage.error('获取设备列表失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '获取设备列表失败')) }
 })
 </script>

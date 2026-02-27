@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"log"
+
 	"github.com/gin-gonic/gin"
 	"github.com/nexusgate/nexusgate/internal/model"
 	"gorm.io/gorm"
@@ -14,24 +16,28 @@ func writeAudit(db *gorm.DB, c *gin.Context, action, resource, detail string) {
 	uid, _ := userID.(uint)
 	uname, _ := username.(string)
 
-	db.Create(&model.AuditLog{
+	if err := db.Create(&model.AuditLog{
 		UserID:   uid,
 		Username: uname,
 		Action:   action,
 		Resource: resource,
 		Detail:   detail,
 		IP:       c.ClientIP(),
-	})
+	}).Error; err != nil {
+		log.Printf("failed to write audit log [%s %s]: %v", action, resource, err)
+	}
 }
 
 // writeLoginAudit creates an audit log for login events (before JWT context is set).
 func writeLoginAudit(db *gorm.DB, c *gin.Context, userID uint, username, detail string) {
-	db.Create(&model.AuditLog{
+	if err := db.Create(&model.AuditLog{
 		UserID:   userID,
 		Username: username,
 		Action:   "login",
 		Resource: "auth",
 		Detail:   detail,
 		IP:       c.ClientIP(),
-	})
+	}).Error; err != nil {
+		log.Printf("failed to write login audit log: %v", err)
+	}
 }
