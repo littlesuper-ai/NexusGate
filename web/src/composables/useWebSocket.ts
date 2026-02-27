@@ -8,6 +8,7 @@ export interface WSMessage {
 
 // Singleton state — shared across all components
 const connected = ref(false)
+const disconnected = ref(false) // true when max reconnect attempts exhausted
 const lastMessage = ref<WSMessage | null>(null)
 const handlers = new Map<string, Set<(data: any) => void>>()
 let ws: WebSocket | null = null
@@ -32,6 +33,7 @@ function connect() {
 
   ws.onopen = () => {
     connected.value = true
+    disconnected.value = false
     reconnectAttempts = 0
     if (reconnectTimer) { clearTimeout(reconnectTimer); reconnectTimer = null }
   }
@@ -52,6 +54,8 @@ function connect() {
       reconnectAttempts++
       const delay = Math.min(BASE_RECONNECT_DELAY * Math.pow(1.5, reconnectAttempts), 30000)
       reconnectTimer = setTimeout(connect, delay)
+    } else if (reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
+      disconnected.value = true
     }
   }
 
@@ -101,5 +105,5 @@ export function useWebSocket() {
     }
   })
 
-  return { connected, lastMessage, on, off }
+  return { connected, disconnected, lastMessage, on, off }
 }

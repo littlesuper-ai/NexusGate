@@ -104,11 +104,13 @@ func (h *DeviceHandler) List(c *gin.Context) {
 		return
 	}
 
-	if err := query.Limit(1000).Find(&devices).Error; err != nil {
+	var total int64
+	query.Count(&total)
+	if err := query.Order("id").Limit(1000).Find(&devices).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
 	}
-	c.JSON(http.StatusOK, devices)
+	c.JSON(http.StatusOK, gin.H{"data": devices, "total": total, "page": 1, "page_size": 1000})
 }
 
 func (h *DeviceHandler) Get(c *gin.Context) {

@@ -120,13 +120,8 @@ const fetchDevices = async () => {
     const params: Record<string, string | number> = { page: page.value, page_size: pageSize.value }
     if (statusFilter.value) params.status = statusFilter.value
     const { data } = await getDevices(params as any)
-    if (data.data) {
-      devices.value = data.data
-      total.value = data.total
-    } else {
-      devices.value = data
-      total.value = data.length
-    }
+    devices.value = data.data
+    total.value = data.total
   } catch (e: any) {
     ElMessage.error(apiErr(e, '获取设备列表失败'))
   } finally {

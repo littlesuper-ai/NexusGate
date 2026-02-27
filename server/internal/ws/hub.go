@@ -16,16 +16,20 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
+const maxConnectionsPerIP = 5
+
 // Hub maintains connected WebSocket clients and broadcasts messages.
 type Hub struct {
 	mu        sync.RWMutex
 	clients   map[*websocket.Conn]chan struct{} // value is done channel for ping goroutine
+	clientIPs map[*websocket.Conn]string        // track IP per connection
 	jwtSecret string
 }
 
 func NewHub(jwtSecret string) *Hub {
 	return &Hub{
 		clients:   make(map[*websocket.Conn]chan struct{}),
+		clientIPs: make(map[*websocket.Conn]string),
 		jwtSecret: jwtSecret,
 	}
 }
@@ -49,6 +53,21 @@ func (h *Hub) HandleWS(c *gin.Context) {
 		return
 	}
 
+	// Enforce per-IP connection limit
+	clientIP := c.ClientIP()
+	h.mu.RLock()
+	ipCount := 0
+	for _, ip := range h.clientIPs {
+		if ip == clientIP {
+			ipCount++
+		}
+	}
+	h.mu.RUnlock()
+	if ipCount >= maxConnectionsPerIP {
+		c.JSON(http.StatusTooManyRequests, gin.H{"error": "too many WebSocket connections from this IP"})
+		return
+	}
+
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
 		log.Printf("ws upgrade error: %v", err)
@@ -59,6 +78,7 @@ func (h *Hub) HandleWS(c *gin.Context) {
 
 	h.mu.Lock()
 	h.clients[conn] = done
+	h.clientIPs[conn] = clientIP
 	h.mu.Unlock()
 
 	// Keep connection alive with ping/pong
@@ -93,6 +113,7 @@ func (h *Hub) HandleWS(c *gin.Context) {
 
 	h.mu.Lock()
 	delete(h.clients, conn)
+	delete(h.clientIPs, conn)
 	h.mu.Unlock()
 	close(done)
 	conn.Close()
@@ -116,6 +137,7 @@ func (h *Hub) Broadcast(msgType string, data any) {
 		if err := conn.WriteMessage(websocket.TextMessage, payload); err != nil {
 			conn.Close()
 			delete(h.clients, conn)
+			delete(h.clientIPs, conn)
 			select {
 			case <-done:
 				// already closed

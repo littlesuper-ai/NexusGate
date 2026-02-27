@@ -81,6 +81,14 @@
           </template>
         </el-dropdown>
       </el-header>
+      <el-alert
+        v-if="wsDisconnected"
+        title="实时连接已断开，数据可能不是最新的。请刷新页面重试。"
+        type="warning"
+        :closable="false"
+        show-icon
+        style="margin: 0"
+      />
       <el-main>
         <slot />
       </el-main>
@@ -115,9 +123,11 @@ import {
   DataLine, User, List, ArrowDown, Upload, Bell,
 } from '@element-plus/icons-vue'
 import { changePassword, clearTokenRefresh } from '../api'
+import { useWebSocket } from '../composables/useWebSocket'
 
 const route = useRoute()
 const router = useRouter()
+const { disconnected: wsDisconnected } = useWebSocket()
 const username = computed(() => localStorage.getItem('username') || 'Admin')
 const role = computed(() => localStorage.getItem('role') || 'viewer')
 const isAdmin = computed(() => role.value === 'admin')
