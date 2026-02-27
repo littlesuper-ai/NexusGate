@@ -95,8 +95,13 @@ func (h *ConfigHandler) UpdateTemplate(c *gin.Context) {
 }
 
 func (h *ConfigHandler) DeleteTemplate(c *gin.Context) {
-	if err := h.DB.Delete(&model.ConfigTemplate{}, c.Param("id")).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	result := h.DB.Delete(&model.ConfigTemplate{}, c.Param("id"))
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
+		return
+	}
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "template not found"})
 		return
 	}
 	writeAudit(h.DB, c, "delete", "template", fmt.Sprintf("deleted template id=%s", c.Param("id")))

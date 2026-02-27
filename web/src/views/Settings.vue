@@ -109,7 +109,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getSettings, batchUpsertSettings } from '../api'
+import { getSettings, batchUpsertSettings, apiErr } from '../api'
 
 const loading = ref(false)
 const saving = ref(false)
@@ -177,7 +177,7 @@ const loadAll = async () => {
         }
       }
     }
-  } catch { /* use defaults */ }
+  } catch (e: any) { ElMessage.warning(apiErr(e, '加载设置失败，使用默认值')) }
   loading.value = false
 }
 
@@ -204,8 +204,8 @@ const saveSettings = async () => {
     }
     await batchUpsertSettings(items)
     ElMessage.success('设置已保存')
-  } catch {
-    ElMessage.error('保存失败')
+  } catch (e: any) {
+    ElMessage.error(apiErr(e, '保存失败'))
   }
   saving.value = false
 }

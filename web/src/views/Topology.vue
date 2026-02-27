@@ -17,7 +17,7 @@ import { ref, onMounted, onUnmounted, markRaw } from 'vue'
 import { Refresh } from '@element-plus/icons-vue'
 import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
-import { getDevices } from '../api'
+import { getDevices, apiErr } from '../api'
 import { useWebSocket } from '../composables/useWebSocket'
 
 const chartRef = ref<HTMLElement>()
@@ -64,8 +64,8 @@ const fetchAndRender = async () => {
   try {
     const res = await getDevices()
     data = res.data
-  } catch {
-    ElMessage.error('获取拓扑数据失败')
+  } catch (e: any) {
+    ElMessage.error(apiErr(e, '获取拓扑数据失败'))
     return
   }
   const devices: Device[] = data

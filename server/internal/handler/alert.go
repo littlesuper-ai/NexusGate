@@ -63,7 +63,10 @@ func (h *AlertHandler) Resolve(c *gin.Context) {
 		return
 	}
 	now := time.Now()
-	h.DB.Model(&alert).Updates(map[string]any{"resolved": true, "resolved_at": &now})
+	if err := h.DB.Model(&alert).Updates(map[string]any{"resolved": true, "resolved_at": &now}).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
 	c.JSON(http.StatusOK, gin.H{"message": "resolved"})
 }
 

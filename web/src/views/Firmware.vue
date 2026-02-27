@@ -138,6 +138,8 @@ const fetchFirmwares = async () => {
   try {
     const { data } = await getFirmwares(targetFilter.value || undefined)
     firmwares.value = data
+  } catch (e: any) {
+    ElMessage.error(apiErr(e, '获取固件列表失败'))
   } finally {
     loading.value = false
   }
@@ -165,15 +167,23 @@ const handleUpload = async () => {
 
 const handleDelete = async (fw: any) => {
   await ElMessageBox.confirm(`删除固件 ${fw.version}？`, '确认', { type: 'warning' })
-  await deleteFirmware(fw.id)
-  ElMessage.success('已删除')
-  fetchFirmwares()
+  try {
+    await deleteFirmware(fw.id)
+    ElMessage.success('已删除')
+    fetchFirmwares()
+  } catch (e: any) {
+    ElMessage.error(apiErr(e, '删除固件失败'))
+  }
 }
 
 const handleMarkStable = async (fw: any) => {
-  await markFirmwareStable(fw.id)
-  ElMessage.success('已标记为稳定版')
-  fetchFirmwares()
+  try {
+    await markFirmwareStable(fw.id)
+    ElMessage.success('已标记为稳定版')
+    fetchFirmwares()
+  } catch (e: any) {
+    ElMessage.error(apiErr(e, '标记稳定版失败'))
+  }
 }
 
 const handleUpgradeOne = (fw: any) => {
@@ -184,24 +194,37 @@ const handleUpgradeOne = (fw: any) => {
 
 const confirmPushOne = async () => {
   if (!pushDeviceId.value || !pushTarget.value) return
-  await pushFirmwareUpgrade({ device_id: pushDeviceId.value, firmware_id: pushTarget.value.id })
-  ElMessage.success('升级指令已发送')
-  showPushOne.value = false
+  try {
+    await pushFirmwareUpgrade({ device_id: pushDeviceId.value, firmware_id: pushTarget.value.id })
+    ElMessage.success('升级指令已发送')
+    showPushOne.value = false
+  } catch (e: any) {
+    ElMessage.error(apiErr(e, '推送升级失败'))
+  }
 }
 
 const confirmBatch = async () => {
   if (!batchForm.firmware_id) { ElMessage.warning('请选择固件'); return }
   await ElMessageBox.confirm('确认批量推送固件升级？此操作将重启匹配的所有在线设备', '批量升级', { type: 'warning' })
-  const { data } = await batchFirmwareUpgrade({
-    firmware_id: batchForm.firmware_id,
-    group: batchForm.group || undefined,
-    model: batchForm.model || undefined,
-  })
-  ElMessage.success(data.message)
-  showBatch.value = false
+  try {
+    const { data } = await batchFirmwareUpgrade({
+      firmware_id: batchForm.firmware_id,
+      group: batchForm.group || undefined,
+      model: batchForm.model || undefined,
+    })
+    ElMessage.success(data.message)
+    showBatch.value = false
+  } catch (e: any) {
+    ElMessage.error(apiErr(e, '批量升级失败'))
+  }
 }
 
 onMounted(async () => {
-  await Promise.all([fetchFirmwares(), getDevices().then(r => { devices.value = r.data })])
+  await Promise.all([
+    fetchFirmwares(),
+    getDevices().then(r => { devices.value = r.data }).catch((e: any) => {
+      ElMessage.error(apiErr(e, '获取设备列表失败'))
+    }),
+  ])
 })
 </script>

@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"log"
+
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	mqtt "github.com/eclipse/paho.mqtt.golang"
@@ -20,6 +22,7 @@ func SetupRouter(db *gorm.DB, mqttClient mqtt.Client, cfg *config.Config, wsHub 
 	corsOrigins := cfg.CORSOrigins
 	if len(corsOrigins) == 0 {
 		corsOrigins = []string{"*"}
+		log.Println("warning: CORS_ORIGINS not set, allowing all origins — set CORS_ORIGINS in production")
 	}
 	allowCreds := corsOrigins[0] != "*"
 	r.Use(cors.New(cors.Config{

@@ -73,6 +73,26 @@ func (h *FirewallHandler) UpdateZone(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if err := validateName("name", zone.Name); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateOneOf("input", zone.Input, firewallTargets); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateOneOf("output", zone.Output, firewallTargets); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateOneOf("forward", zone.Forward, firewallTargets); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateUCIValue("networks", zone.Networks); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	if err := h.DB.Save(&zone).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -82,8 +102,13 @@ func (h *FirewallHandler) UpdateZone(c *gin.Context) {
 }
 
 func (h *FirewallHandler) DeleteZone(c *gin.Context) {
-	if err := h.DB.Delete(&model.FirewallZone{}, c.Param("id")).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	result := h.DB.Delete(&model.FirewallZone{}, c.Param("id"))
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
+		return
+	}
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "zone not found"})
 		return
 	}
 	writeAudit(h.DB, c, "delete", "firewall_zone", fmt.Sprintf("deleted firewall zone id=%s", c.Param("id")))
@@ -148,6 +173,27 @@ func (h *FirewallHandler) UpdateRule(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	for _, v := range []struct{ f, val string }{
+		{"name", rule.Name}, {"src", rule.Src}, {"dest", rule.Dest},
+		{"src_ip", rule.SrcIP}, {"dest_ip", rule.DestIP},
+	} {
+		if err := validateUCIValue(v.f, v.val); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+	}
+	if err := validateOneOf("target", rule.Target, firewallTargets); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateOneOf("proto", rule.Proto, firewallProtos); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validatePort("dest_port", rule.DestPort); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
 	if err := h.DB.Save(&rule).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -157,8 +203,13 @@ func (h *FirewallHandler) UpdateRule(c *gin.Context) {
 }
 
 func (h *FirewallHandler) DeleteRule(c *gin.Context) {
-	if err := h.DB.Delete(&model.FirewallRule{}, c.Param("id")).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	result := h.DB.Delete(&model.FirewallRule{}, c.Param("id"))
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
+		return
+	}
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "rule not found"})
 		return
 	}
 	writeAudit(h.DB, c, "delete", "firewall_rule", fmt.Sprintf("deleted firewall rule id=%s", c.Param("id")))

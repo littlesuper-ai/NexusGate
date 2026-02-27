@@ -123,8 +123,10 @@ func dispatchNotification(db *gorm.DB, alert model.Alert) {
 	}
 }
 
+var webhookClient = &http.Client{Timeout: 10 * time.Second}
+
 func sendWebhook(url string, alert model.Alert) {
-	payload, _ := json.Marshal(map[string]any{
+	payload, err := json.Marshal(map[string]any{
 		"device_name": alert.DeviceName,
 		"device_id":   alert.DeviceID,
 		"metric":      alert.Metric,
@@ -133,8 +135,12 @@ func sendWebhook(url string, alert model.Alert) {
 		"severity":    alert.Severity,
 		"time":        alert.CreatedAt.Format(time.RFC3339),
 	})
+	if err != nil {
+		log.Printf("webhook payload marshal failed: %v", err)
+		return
+	}
 
-	resp, err := http.Post(url, "application/json", bytes.NewReader(payload))
+	resp, err := webhookClient.Post(url, "application/json", bytes.NewReader(payload))
 	if err != nil {
 		log.Printf("webhook send failed: %v", err)
 		return

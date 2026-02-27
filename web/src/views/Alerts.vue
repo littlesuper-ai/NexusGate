@@ -101,7 +101,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getAlerts, getAlertSummary, resolveAlert } from '../api'
+import { getAlerts, getAlertSummary, resolveAlert, apiErr } from '../api'
 import { useWebSocket } from '../composables/useWebSocket'
 
 const alerts = ref<any[]>([])
@@ -134,17 +134,21 @@ const fetchAlerts = async () => {
       total.value = alertRes.data.length
     }
     summary.value = sumRes.data
-  } catch {
-    ElMessage.error('获取告警数据失败')
+  } catch (e: any) {
+    ElMessage.error(apiErr(e, '获取告警数据失败'))
   } finally {
     loading.value = false
   }
 }
 
 const handleResolve = async (id: number) => {
-  await resolveAlert(id)
-  ElMessage.success('已解决')
-  fetchAlerts()
+  try {
+    await resolveAlert(id)
+    ElMessage.success('已解决')
+    fetchAlerts()
+  } catch (e: any) {
+    ElMessage.error(apiErr(e, '解决告警失败'))
+  }
 }
 
 // Real-time new alert events

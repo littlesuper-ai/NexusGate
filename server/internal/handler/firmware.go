@@ -4,6 +4,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -103,7 +104,9 @@ func (h *FirmwareHandler) Delete(c *gin.Context) {
 		return
 	}
 
-	os.Remove(filepath.Join(firmwareDir, fw.Filename))
+	if err := os.Remove(filepath.Join(firmwareDir, fw.Filename)); err != nil && !os.IsNotExist(err) {
+		log.Printf("warning: failed to remove firmware file %s: %v", fw.Filename, err)
+	}
 	err := h.DB.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Where("firmware_id = ?", fw.ID).Delete(&model.FirmwareUpgrade{}).Error; err != nil {
 			return err
@@ -161,7 +164,10 @@ func (h *FirmwareHandler) PushUpgrade(c *gin.Context) {
 		Status:     "pending",
 		StartedAt:  &now,
 	}
-	h.DB.Create(&upgrade)
+	if err := h.DB.Create(&upgrade).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create upgrade record"})
+		return
+	}
 
 	if h.MQTT == nil || !h.MQTT.IsConnected() {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "MQTT not connected"})
@@ -223,7 +229,10 @@ func (h *FirmwareHandler) BatchUpgrade(c *gin.Context) {
 			Status:     "pending",
 			StartedAt:  &now,
 		}
-		h.DB.Create(&upgrade)
+		if err := h.DB.Create(&upgrade).Error; err != nil {
+			log.Printf("failed to create upgrade record for device %d: %v", device.ID, err)
+			continue
+		}
 
 		if h.MQTT != nil && h.MQTT.IsConnected() {
 			topic := fmt.Sprintf("nexusgate/devices/%s/command", device.MAC)

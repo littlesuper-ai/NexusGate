@@ -114,7 +114,7 @@ import {
   Monitor, Connection, Document, Setting,
   DataLine, User, List, ArrowDown, Upload, Bell,
 } from '@element-plus/icons-vue'
-import { changePassword } from '../api'
+import { changePassword, clearTokenRefresh } from '../api'
 
 const route = useRoute()
 const router = useRouter()
@@ -127,6 +127,7 @@ const pwForm = reactive({ oldPassword: '', newPassword: '', confirmPassword: '' 
 
 const handleCommand = (cmd: string) => {
   if (cmd === 'logout') {
+    clearTokenRefresh()
     localStorage.removeItem('token')
     localStorage.removeItem('username')
     localStorage.removeItem('role')

@@ -22,7 +22,7 @@
               <el-button type="primary" size="small" :disabled="!deviceId" @click="showIfaceDialog = true">新建</el-button>
             </el-row>
           </template>
-          <el-table :data="interfaces" stripe highlight-current-row @current-change="selectInterface">
+          <el-table :data="interfaces" v-loading="loading" stripe highlight-current-row @current-change="selectInterface">
             <el-table-column prop="name" label="接口" width="80" />
             <el-table-column prop="address" label="地址" />
             <el-table-column prop="listen_port" label="端口" width="80" />
@@ -114,6 +114,7 @@ const deviceId = ref<number | null>(null)
 const interfaces = ref<any[]>([])
 const peers = ref<any[]>([])
 const selectedIface = ref<any>(null)
+const loading = ref(false)
 const submitting = ref(false)
 const applying = ref(false)
 const showIfaceDialog = ref(false)
@@ -126,10 +127,12 @@ const fetchInterfaces = async () => {
   if (!deviceId.value) return
   selectedIface.value = null
   peers.value = []
+  loading.value = true
   try {
     const { data } = await getVPNInterfaces(deviceId.value)
     interfaces.value = data
-  } catch { ElMessage.error('获取 VPN 接口失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '获取 VPN 接口失败')) }
+  finally { loading.value = false }
 }
 
 const selectInterface = async (iface: any) => {
@@ -138,7 +141,7 @@ const selectInterface = async (iface: any) => {
     try {
       const { data } = await getVPNPeers(iface.id)
       peers.value = data
-    } catch { ElMessage.error('获取 Peer 列表失败') }
+    } catch (e: any) { ElMessage.error(apiErr(e, '获取 Peer 列表失败')) }
   }
 }
 
@@ -160,7 +163,7 @@ const handleDeleteIface = async (iface: any) => {
     await deleteVPNInterface(iface.id)
     ElMessage.success('已删除')
     fetchInterfaces()
-  } catch { ElMessage.error('删除失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '删除失败')) }
 }
 
 const handleCreatePeer = async () => {
@@ -181,7 +184,7 @@ const handleDeletePeer = async (peer: any) => {
     await deleteVPNPeer(peer.id)
     ElMessage.success('已删除')
     selectInterface(selectedIface.value)
-  } catch { ElMessage.error('删除失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '删除失败')) }
 }
 
 const handleApply = async () => {
@@ -199,6 +202,6 @@ onMounted(async () => {
   try {
     const { data } = await getDevices()
     devices.value = data
-  } catch { ElMessage.error('获取设备列表失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '获取设备列表失败')) }
 })
 </script>

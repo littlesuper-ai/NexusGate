@@ -22,7 +22,7 @@
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { login } from '../api'
+import { login, apiErr } from '../api'
 
 const router = useRouter()
 const loading = ref(false)
@@ -40,8 +40,8 @@ const handleLogin = async () => {
     localStorage.setItem('username', data.user.username)
     localStorage.setItem('role', data.user.role)
     router.push('/dashboard')
-  } catch {
-    ElMessage.error('登录失败，请检查用户名和密码')
+  } catch (e) {
+    ElMessage.error(apiErr(e, '登录失败，请检查用户名和密码'))
   } finally {
     loading.value = false
   }

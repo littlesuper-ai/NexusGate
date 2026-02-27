@@ -20,7 +20,7 @@
         <el-row justify="end" style="margin-bottom: 12px">
           <el-button type="primary" @click="openPoolDialog()" :disabled="!selectedDevice">添加地址池</el-button>
         </el-row>
-        <el-table :data="pools" stripe border size="small">
+        <el-table :data="pools" v-loading="loading" stripe border size="small">
           <template #empty><el-empty description="暂无 DHCP 地址池" :image-size="60" /></template>
           <el-table-column prop="id" label="ID" width="60" />
           <el-table-column prop="interface" label="接口" width="100" />
@@ -48,7 +48,7 @@
         <el-row justify="end" style="margin-bottom: 12px">
           <el-button type="primary" @click="openLeaseDialog()" :disabled="!selectedDevice">添加绑定</el-button>
         </el-row>
-        <el-table :data="leases" stripe border size="small">
+        <el-table :data="leases" v-loading="loading" stripe border size="small">
           <template #empty><el-empty description="暂无静态绑定" :image-size="60" /></template>
           <el-table-column prop="id" label="ID" width="60" />
           <el-table-column prop="name" label="主机名" width="150" />
@@ -115,6 +115,7 @@ const activeTab = ref('pool')
 const pools = ref<any[]>([])
 const leases = ref<any[]>([])
 
+const loading = ref(false)
 const applying = ref(false)
 const showPoolDialog = ref(false)
 const showLeaseDialog = ref(false)
@@ -155,6 +156,7 @@ const openLeaseDialog = (row?: any) => {
 
 const fetchAll = async () => {
   if (!selectedDevice.value) { pools.value = []; leases.value = []; return }
+  loading.value = true
   try {
     const [p, l] = await Promise.all([
       getDHCPPools(selectedDevice.value),
@@ -162,7 +164,8 @@ const fetchAll = async () => {
     ])
     pools.value = p.data
     leases.value = l.data
-  } catch { ElMessage.error('获取 DHCP 数据失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '获取 DHCP 数据失败')) }
+  finally { loading.value = false }
 }
 
 const submitPool = async () => {
@@ -187,7 +190,7 @@ const handleDeletePool = async (id: number) => {
   await ElMessageBox.confirm('确认删除此地址池？', '确认')
   try {
     await deleteDHCPPool(id); ElMessage.success('已删除'); fetchAll()
-  } catch { ElMessage.error('删除失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '删除失败')) }
 }
 
 const submitLease = async () => {
@@ -212,7 +215,7 @@ const handleDeleteLease = async (id: number) => {
   await ElMessageBox.confirm('确认删除此绑定？', '确认')
   try {
     await deleteStaticLease(id); ElMessage.success('已删除'); fetchAll()
-  } catch { ElMessage.error('删除失败') }
+  } catch (e: any) { ElMessage.error(apiErr(e, '删除失败')) }
 }
 
 const handleApply = async () => {
@@ -222,13 +225,17 @@ const handleApply = async () => {
   try {
     await applyDHCP(selectedDevice.value)
     ElMessage.success('DHCP 配置已推送')
+  } catch (e: any) {
+    ElMessage.error(apiErr(e, 'DHCP 配置下发失败'))
   } finally {
     applying.value = false
   }
 }
 
 onMounted(async () => {
-  const { data } = await getDevices()
-  devices.value = data
+  try {
+    const { data } = await getDevices()
+    devices.value = data
+  } catch (e: any) { ElMessage.error(apiErr(e, '获取设备列表失败')) }
 })
 </script>

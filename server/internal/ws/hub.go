@@ -109,30 +109,22 @@ func (h *Hub) Broadcast(msgType string, data any) {
 		return
 	}
 
-	h.mu.RLock()
-	type deadConn struct {
-		conn *websocket.Conn
-		done chan struct{}
-	}
-	var dead []deadConn
+	// Use a write lock since gorilla/websocket does not support concurrent writes.
+	// This also allows us to clean up dead connections atomically.
+	h.mu.Lock()
 	for conn, done := range h.clients {
 		if err := conn.WriteMessage(websocket.TextMessage, payload); err != nil {
 			conn.Close()
-			dead = append(dead, deadConn{conn, done})
-		}
-	}
-	h.mu.RUnlock()
-
-	if len(dead) > 0 {
-		h.mu.Lock()
-		for _, d := range dead {
-			if _, exists := h.clients[d.conn]; exists {
-				delete(h.clients, d.conn)
-				close(d.done)
+			delete(h.clients, conn)
+			select {
+			case <-done:
+				// already closed
+			default:
+				close(done)
 			}
 		}
-		h.mu.Unlock()
 	}
+	h.mu.Unlock()
 }
 
 // ClientCount returns the number of connected clients.

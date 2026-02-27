@@ -86,6 +86,8 @@ const fetchUsers = async () => {
   try {
     const { data } = await getUsers()
     users.value = data
+  } catch (e: any) {
+    ElMessage.error(apiErr(e, '获取用户列表失败'))
   } finally {
     loading.value = false
   }
@@ -132,9 +134,13 @@ const handleEdit = async () => {
 
 const handleDelete = async (user: any) => {
   await ElMessageBox.confirm(`删除用户 "${user.username}"？`, '确认', { type: 'warning' })
-  await deleteUser(user.id)
-  ElMessage.success('已删除')
-  fetchUsers()
+  try {
+    await deleteUser(user.id)
+    ElMessage.success('已删除')
+    fetchUsers()
+  } catch (e: any) {
+    ElMessage.error(apiErr(e, '删除用户失败'))
+  }
 }
 
 onMounted(fetchUsers)

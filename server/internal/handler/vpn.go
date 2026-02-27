@@ -65,6 +65,18 @@ func (h *VPNHandler) UpdateInterface(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	if err := validateName("name", iface.Name); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if err := validateUCIValue("private_key", iface.PrivateKey); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+	if iface.ListenPort < 1 || iface.ListenPort > 65535 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "listen_port must be 1-65535"})
+		return
+	}
 	if err := h.DB.Save(&iface).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -134,6 +146,15 @@ func (h *VPNHandler) UpdatePeer(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
+	for _, v := range []struct{ f, val string }{
+		{"public_key", peer.PublicKey}, {"allowed_ips", peer.AllowedIPs},
+		{"endpoint", peer.Endpoint}, {"description", peer.Description},
+	} {
+		if err := validateUCIValue(v.f, v.val); err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+	}
 	if err := h.DB.Save(&peer).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
 		return
@@ -143,8 +164,13 @@ func (h *VPNHandler) UpdatePeer(c *gin.Context) {
 }
 
 func (h *VPNHandler) DeletePeer(c *gin.Context) {
-	if err := h.DB.Delete(&model.WireGuardPeer{}, c.Param("id")).Error; err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+	result := h.DB.Delete(&model.WireGuardPeer{}, c.Param("id"))
+	if result.Error != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": result.Error.Error()})
+		return
+	}
+	if result.RowsAffected == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "peer not found"})
 		return
 	}
 	writeAudit(h.DB, c, "delete", "vpn_peer", fmt.Sprintf("deleted WireGuard peer id=%s", c.Param("id")))

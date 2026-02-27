@@ -58,7 +58,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getTemplates, createTemplate, updateTemplate, deleteTemplate } from '../api'
+import { getTemplates, createTemplate, updateTemplate, deleteTemplate, apiErr } from '../api'
 
 const templates = ref<any[]>([])
 const loading = ref(false)
@@ -73,6 +73,8 @@ const fetchTemplates = async () => {
   try {
     const { data } = await getTemplates(category.value || undefined)
     templates.value = data
+  } catch (e: any) {
+    ElMessage.error(apiErr(e, '获取模板列表失败'))
   } finally {
     loading.value = false
   }
@@ -115,8 +117,8 @@ const handleSave = async () => {
     editingId.value = null
     Object.assign(form, { name: '', category: '', description: '', content: '' })
     fetchTemplates()
-  } catch {
-    ElMessage.error('保存失败')
+  } catch (e: any) {
+    ElMessage.error(apiErr(e, '保存失败'))
   } finally {
     submitting.value = false
   }
@@ -124,9 +126,13 @@ const handleSave = async () => {
 
 const handleDelete = async (tpl: any) => {
   await ElMessageBox.confirm(`删除模板 "${tpl.name}"？`, '确认', { type: 'warning' })
-  await deleteTemplate(tpl.id)
-  ElMessage.success('已删除')
-  fetchTemplates()
+  try {
+    await deleteTemplate(tpl.id)
+    ElMessage.success('已删除')
+    fetchTemplates()
+  } catch (e: any) {
+    ElMessage.error(apiErr(e, '删除失败'))
+  }
 }
 
 onMounted(fetchTemplates)

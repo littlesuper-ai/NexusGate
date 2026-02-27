@@ -18,8 +18,8 @@ type Device struct {
 	ID           uint           `json:"id" gorm:"primaryKey"`
 	Name         string         `json:"name" gorm:"not null"`
 	MAC          string         `json:"mac" gorm:"uniqueIndex;not null"`
-	IPAddress    string         `json:"ip_address"`
-	Model        string         `json:"model"`
+	IPAddress    string         `json:"ip_address" gorm:"index"`
+	Model        string         `json:"model" gorm:"index"`
 	Firmware     string         `json:"firmware"`
 	Status       DeviceStatus   `json:"status" gorm:"default:unknown"`
 	Group        string         `json:"group" gorm:"index"`

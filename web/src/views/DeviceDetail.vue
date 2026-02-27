@@ -163,7 +163,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
 import {
   getDevice, updateDevice, rebootDevice, pushConfig,
-  getTemplates, getConfigHistory, getDeviceMetrics, getUpgradeHistory,
+  getTemplates, getConfigHistory, getDeviceMetrics, getUpgradeHistory, apiErr,
 } from '../api'
 import { useWebSocket } from '../composables/useWebSocket'
 
@@ -300,16 +300,24 @@ watch(activeTab, (tab) => {
 
 const handleReboot = async () => {
   await ElMessageBox.confirm('确认重启该设备？', '重启确认', { type: 'warning' })
-  await rebootDevice(deviceId)
-  ElMessage.success('重启指令已发送')
+  try {
+    await rebootDevice(deviceId)
+    ElMessage.success('重启指令已发送')
+  } catch (e: any) {
+    ElMessage.error(apiErr(e, '重启失败'))
+  }
 }
 
 const handlePushConfig = async () => {
-  await pushConfig(deviceId, { template_id: configForm.template_id ?? undefined, content: configForm.content || undefined })
-  ElMessage.success('配置已下发')
-  showPushConfig.value = false
-  const { data } = await getConfigHistory(deviceId)
-  configs.value = data
+  try {
+    await pushConfig(deviceId, { template_id: configForm.template_id ?? undefined, content: configForm.content || undefined })
+    ElMessage.success('配置已下发')
+    showPushConfig.value = false
+    const { data } = await getConfigHistory(deviceId)
+    configs.value = data
+  } catch (e: any) {
+    ElMessage.error(apiErr(e, '配置下发失败'))
+  }
 }
 
 const handleEditInfo = () => {
@@ -320,11 +328,15 @@ const handleEditInfo = () => {
 }
 
 const saveEdit = async () => {
-  await updateDevice(deviceId, { ...editForm })
-  ElMessage.success('已保存')
-  showEdit.value = false
-  const { data } = await getDevice(deviceId)
-  device.value = data
+  try {
+    await updateDevice(deviceId, { ...editForm })
+    ElMessage.success('已保存')
+    showEdit.value = false
+    const { data } = await getDevice(deviceId)
+    device.value = data
+  } catch (e: any) {
+    ElMessage.error(apiErr(e, '保存失败'))
+  }
 }
 
 onMounted(async () => {
@@ -345,8 +357,8 @@ onMounted(async () => {
 
     await nextTick()
     if (metrics.value.length > 0) renderCharts()
-  } catch {
-    ElMessage.error('获取设备信息失败')
+  } catch (e: any) {
+    ElMessage.error(apiErr(e, '获取设备信息失败'))
     router.push('/devices')
   } finally {
     loading.value = false
